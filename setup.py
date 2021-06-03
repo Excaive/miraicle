@@ -6,7 +6,7 @@ with open('README.md', 'r', encoding='utf-8') as fh:
 
 setuptools.setup(
     name='miraicle',
-    version='0.1.0',
+    version='0.1.1',
     author='Excaive',
     description='A Python SDK of mirai',
     license='AGPL 3.0',
@@ -15,7 +15,12 @@ setuptools.setup(
     url='https://github.com/Excaive/miraicle',
     install_requires=['requests'],
     packages=setuptools.find_packages(),
-    classifiers=[],
+    classifiers=[
+        'Programming Language :: Python :: 3.6',
+        'Programming Language :: Python :: 3.7',
+        'Programming Language :: Python :: 3.8',
+        'Programming Language :: Python :: 3.9',
+    ],
     keywords='mirai, bot',
     python_requires='>=3.6',
 )

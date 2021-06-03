@@ -1,10 +1,13 @@
 # miraicle
 
-<img align="middle" src="https://img.shields.io/badge/Python-%3E%3D3.6-blue" />
+<div align="center">
 
-<img align="middle" src="https://img.shields.io/badge/PyPi-v0.1.0-brightgreen?link=https://pypi.org/project/miraicle/0.1.0/" />
+![PyPI - Python Version](https://img.shields.io/pypi/pyversions/miraicle)
+![PyPI](https://img.shields.io/pypi/v/miraicle?color=brightgreen)
 
 一个基于 mirai-api-http 的 Python SDK
+
+</div>
 
 ## 安装
 `pip install miraicle`
