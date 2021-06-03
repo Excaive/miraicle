@@ -36,12 +36,11 @@ class GroupSwitchFilter(BaseFilter):
         super().__init__(config_file)
         self.__funcs = []
         self.__func_names = []
-        self.__lock: Optional[threading.Lock] = None
+        self.__lock = threading.Lock()
 
     def sift(self, funcs, bot: Mirai, msg):
-        if not self.__lock:
+        if not self.__funcs:
             self.__set_funcs(bot.receiver_funcs)
-            self.__lock = bot.lock
         if isinstance(msg, GroupMessage):
             funcs_group_filter = bot.filter_funcs.get('GroupSwitchFilter', [])
             for func in funcs_group_filter:
@@ -122,11 +121,9 @@ class BlacklistFilter(BaseFilter):
         if 'blacklist' not in self.config:
             self.config['blacklist'] = []
             self._save_config()
-        self.__lock: Optional[threading.Lock] = None
+        self.__lock = threading.Lock()
 
     def sift(self, funcs, bot: Mirai, msg):
-        if not self.__lock:
-            self.__lock = bot.lock
         if isinstance(msg, GroupMessage):
             funcs_group_filter = bot.filter_funcs.get('BlacklistFilter', [])
             for func in funcs_group_filter:

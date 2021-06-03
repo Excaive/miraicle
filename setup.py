@@ -6,9 +6,9 @@ with open('README.md', 'r', encoding='utf-8') as fh:
 
 setuptools.setup(
     name='miraicle',
-    version='0.1.1',
+    version='0.1.2',
     author='Excaive',
-    description='A Python SDK of mirai',
+    description='A Python SDK based on mirai-api-http',
     license='AGPL 3.0',
     long_description=long_description,
     long_description_content_type='text/markdown',
