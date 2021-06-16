@@ -12,17 +12,17 @@ class Mirai:
 
     def __init__(self,
                  qq: int,
-                 auth_key: str,
+                 verify_key: str,
                  port: int,
                  session_key: Optional[str] = None):
         """创建一个 Mirai 对象
         :param qq: 要绑定的 bot 的 qq 号
-        :param auth_key: 创建 mirai-http-server 时生成的 key, 在 mirai-api-http 的 setting 文件中手动指定
+        :param verify_key: 创建 mirai-http-server 时生成的 key, 在 mirai-api-http 的 setting 文件中手动指定
         :param port: 端口号，在 mirai-api-http 的 setting 文件中手动指定
         :param session_key: 经过校验得到的 session 号，可选
         """
         self.qq: int = qq
-        self.auth_key: str = auth_key
+        self.verify_key: str = verify_key
         self.base_url: str = f'http://localhost:{port}'
         self.session_key: Optional[str] = session_key
 
@@ -37,22 +37,22 @@ class Mirai:
     def run(self):
         """开始运行"""
         if not self.session_key:
-            auth_response = self.__auth()
+            verify_response = self.__verify()
             if all(
-                    ['code' in auth_response and auth_response['code'] == 0,
-                     'session' in auth_response and auth_response['session']]
+                    ['code' in verify_response and verify_response['code'] == 0,
+                     'session' in verify_response and verify_response['session']]
             ):
-                self.session_key = auth_response['session']
-                print(f"sessionKey: {auth_response['session']}")
-                verify_response = self.__verify()
+                self.session_key = verify_response['session']
+                print(f"sessionKey: {verify_response['session']}")
+                verify_response = self.__bind()
                 if all(
                         ['code' in verify_response and verify_response['code'] == 0,
                          'msg' in verify_response and verify_response['msg']]
                 ):
                     pass
             else:
-                if 'code' in auth_response and auth_response['code'] == 1:
-                    raise ValueError('invalid authKey')
+                if 'code' in verify_response and verify_response['code'] == 1:
+                    raise ValueError('invalid verifyKey')
                 else:
                     raise ValueError('unknown response')
         self.__main_loop()
@@ -82,16 +82,16 @@ class Mirai:
             func(self, msg)
 
     @end_log
-    def __auth(self):
+    def __verify(self):
         """开始认证"""
-        response = requests.post(url=f'{self.base_url}/auth',
-                                 json={'authKey': self.auth_key}).json()
+        response = requests.post(url=f'{self.base_url}/verify',
+                                 json={'verifyKey': self.verify_key}).json()
         return response
 
     @end_log
-    def __verify(self):
-        """校验Session"""
-        response = requests.post(url=f'{self.base_url}/verify',
+    def __bind(self):
+        """绑定Session"""
+        response = requests.post(url=f'{self.base_url}/bind',
                                  json={'sessionKey': self.session_key, 'qq': self.qq}).json()
         return response
 
