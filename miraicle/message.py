@@ -1,4 +1,5 @@
 import time
+import random
 from typing import Optional, Union, List
 
 from .display import color
@@ -339,6 +340,28 @@ class App:
         return App(content=json)
 
 
+class Dice:
+    def __init__(self, value: Optional[int] = None):
+        self.value = value if value else random.randint(1, 6)
+
+    def __repr__(self):
+        return f'[Dice:{self.value}]'
+
+    def __eq__(self, other):
+        if isinstance(other, Dice):
+            return self.value == other.value
+        else:
+            return False
+
+    def to_json(self):
+        return {'type': 'Dice', 'value': self.value}
+
+    @staticmethod
+    def from_json(json: dict):
+        value = json.get('value', None)
+        return Dice(value=value)
+
+
 class File:
     def __init__(self, file_id: str, internal_id: int, name: str, size: int):
         self.file_id = file_id
@@ -376,7 +399,7 @@ class Message:
             text = ''
             for ele in msg_chain[1:]:
                 if ele['type'] in ['Plain', 'At', 'AtAll', 'Face', 'Image', 'FlashImage',
-                                   'Voice', 'Xml', 'Json', 'App', 'File']:
+                                   'Voice', 'Xml', 'Json', 'App', 'Dice', 'File']:
                     instance = eval(ele['type']).from_json(ele)
                     chain.append(instance)
                     text += instance.__repr__()

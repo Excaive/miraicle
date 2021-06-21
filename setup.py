@@ -6,14 +6,14 @@ with open('README.md', 'r', encoding='utf-8') as fh:
 
 setuptools.setup(
     name='miraicle',
-    version='0.2.0',
+    version='0.2.1',
     author='Excaive',
     description='A Python SDK based on mirai-api-http',
     license='AGPL 3.0',
     long_description=long_description,
     long_description_content_type='text/markdown',
     url='https://github.com/Excaive/miraicle',
-    install_requires=['requests'],
+    install_requires=['requests', 'websocket-client'],
     packages=setuptools.find_packages(),
     classifiers=[
         'Programming Language :: Python :: 3.6',
