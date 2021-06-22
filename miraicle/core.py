@@ -34,7 +34,7 @@ class Mirai:
         self.session_key: Optional[str] = session_key
         self.adapter: str = adapter
 
-        self.__ws: Optional[websocket.WebSocket] = None
+        self.__session: Optional[Union[requests.session, websocket.WebSocket]] = None
         self.__msg_pool: Dict[str, json] = {}
 
     def get_version(self):
@@ -49,44 +49,10 @@ class Mirai:
             self.__http_run()
         elif self.adapter == 'ws':
             self.__ws_run()
-        # if self.adapter == 'http':
-        #     if not self.session_key:
-        #         verify_response = self.__http_verify()
-        #         if all(
-        #                 ['code' in verify_response and verify_response['code'] == 0,
-        #                  'session' in verify_response and verify_response['session']]
-        #         ):
-        #             self.session_key = verify_response['session']
-        #             print(f"sessionKey: {verify_response['session']}")
-        #             verify_response = self.__http_bind()
-        #             if all(
-        #                     ['code' in verify_response and verify_response['code'] == 0,
-        #                      'msg' in verify_response and verify_response['msg']]
-        #             ):
-        #                 pass
-        #         else:
-        #             if 'code' in verify_response and verify_response['code'] == 1:
-        #                 raise ValueError('invalid verifyKey')
-        #             else:
-        #                 raise ValueError('unknown response')
-        #     self.__http_main_loop()
-        # elif self.adapter == 'ws':
-        #     connect_response = self.__ws_connect()
-        #     connect_data = connect_response.get('data', {})
-        #     if all(
-        #             ['code' in connect_data and connect_data['code'] == 0,
-        #              'session' in connect_data and connect_data['session']]
-        #     ):
-        #         self.session_key = connect_data['session']
-        #         print(f"sessionKey: {connect_data['session']}")
-        #     else:
-        #         if 'code' in connect_data and connect_data['code'] == 1:
-        #             raise ValueError('invalid verifyKey')
-        #         else:
-        #             raise ValueError('unknown response')
-        #     self.__ws_main_loop()
 
     def __http_run(self):
+        """使用 http adapter 运行"""
+        self.__session = requests.session()
         if not self.session_key:
             verify_response = self.__http_verify()
             if all(
@@ -109,6 +75,7 @@ class Mirai:
         self.__http_main_loop()
 
     def __ws_run(self):
+        """使用 ws adapter 运行"""
         connect_response = self.__ws_connect()
         connect_data = connect_response.get('data', {})
         if all(
@@ -127,38 +94,38 @@ class Mirai:
     @end_log
     def __http_verify(self):
         """http 开始认证"""
-        response = requests.post(url=f'{self.base_url}/verify',
-                                 json={'verifyKey': self.verify_key}).json()
+        response = self.__session.post(url=f'{self.base_url}/verify',
+                                       json={'verifyKey': self.verify_key}).json()
         return response
 
     @end_log
     def __http_bind(self):
         """http 绑定 session"""
-        response = requests.post(url=f'{self.base_url}/bind',
-                                 json={'sessionKey': self.session_key, 'qq': self.qq}).json()
+        response = self.__session.post(url=f'{self.base_url}/bind',
+                                       json={'sessionKey': self.session_key, 'qq': self.qq}).json()
         return response
 
     @end_log
     def __http_release(self):
         """http 释放 session"""
-        response = requests.post(url=f'{self.base_url}/release',
-                                 json={'sessionKey': self.session_key, 'qq': self.qq}).json()
+        response = self.__session.post(url=f'{self.base_url}/release',
+                                       json={'sessionKey': self.session_key, 'qq': self.qq}).json()
         return response
 
     @end_log
     def __ws_connect(self):
         """websocket 创建连接"""
-        self.__ws = websocket.WebSocket()
-        self.__ws.connect(f'{self.base_url}/all',
-                          header={'verifyKey': self.verify_key,
-                                  'qq': str(self.qq)})
-        response = json.loads(self.__ws.recv())
+        self.__session = websocket.WebSocket()
+        self.__session.connect(f'{self.base_url}/all',
+                               header={'verifyKey': self.verify_key,
+                                       'qq': str(self.qq)})
+        response = json.loads(self.__session.recv())
         return response
 
     def __ws_send(self, command: str, content: json):
         """websocket 发送数据"""
         sync_id = str(random.randint(0, 100_000_000))
-        self.__ws.send(
+        self.__session.send(
             json.dumps({'syncId': sync_id,
                         'command': command,
                         'subCommand': None,
@@ -170,6 +137,7 @@ class Mirai:
 
     @start_log
     def __http_main_loop(self):
+        """http 主循环"""
         while True:
             time.sleep(0.5)
             try:
@@ -187,16 +155,18 @@ class Mirai:
                 continue
 
     def __http_fetch_msg(self, count):
-        response = requests.get(url=f'{self.base_url}/fetchMessage',
-                                params={'sessionKey': self.session_key,
-                                        'count': count}).json()
+        """http 接收消息"""
+        response = self.__session.get(url=f'{self.base_url}/fetchMessage',
+                                      params={'sessionKey': self.session_key,
+                                              'count': count}).json()
         return response
 
     @start_log
     def __ws_main_loop(self):
+        """ws 主循环"""
         while True:
             try:
-                msg_json = json.loads(self.__ws.recv())
+                msg_json = json.loads(self.__session.recv())
                 if msg_json['syncId'] == '-1':
                     msg_origin = msg_json['data']
                     msg_type = msg_origin['type']
@@ -240,7 +210,7 @@ class Mirai:
                    'qq': qq,
                    'messageChain': self.__handle_friend_msg_chain(msg)}
         if self.adapter == 'http':
-            response = requests.post(url=f'{self.base_url}/sendFriendMessage', json=content).json()
+            response = self.__session.post(url=f'{self.base_url}/sendFriendMessage', json=content).json()
             return response
         elif self.adapter == 'ws':
             response = self.__ws_send(command='sendFriendMessage', content=content)
@@ -258,7 +228,7 @@ class Mirai:
                    'group': group,
                    'messageChain': self.__handle_friend_msg_chain(msg)}
         if self.adapter == 'http':
-            response = requests.post(url=f'{self.base_url}/sendTempMessage', json=content).json()
+            response = self.__session.post(url=f'{self.base_url}/sendTempMessage', json=content).json()
             return response
         elif self.adapter == 'ws':
             response = self.__ws_send(command='sendTempMessage', content=content)
@@ -294,7 +264,7 @@ class Mirai:
             content['quote'] = quote
 
         if self.adapter == 'http':
-            response = requests.post(url=f'{self.base_url}/sendGroupMessage', json=content).json()
+            response = self.__session.post(url=f'{self.base_url}/sendGroupMessage', json=content).json()
             return response
         elif self.adapter == 'ws':
             response = self.__ws_send(command='sendGroupMessage', content=content)
@@ -325,7 +295,7 @@ class Mirai:
         """获取好友列表"""
         content = {'sessionKey': self.session_key}
         if self.adapter == 'http':
-            response = requests.get(url=f'{self.base_url}/friendList', params=content).json()
+            response = self.__session.get(url=f'{self.base_url}/friendList', params=content).json()
             return response
         elif self.adapter == 'ws':
             response = self.__ws_send(command='friendList', content=content)
@@ -339,7 +309,7 @@ class Mirai:
         content = {'sessionKey': self.session_key,
                    'target': id}
         if self.adapter == 'http':
-            response = requests.post(url=f'{self.base_url}/recall', params=content).json()
+            response = self.__session.post(url=f'{self.base_url}/recall', params=content).json()
             return response
         elif self.adapter == 'ws':
             response = self.__ws_send(command='recall', content=content)
@@ -349,7 +319,7 @@ class Mirai:
         """获取群列表"""
         content = {'sessionKey': self.session_key}
         if self.adapter == 'http':
-            response = requests.get(url=f'{self.base_url}/groupList', params=content).json()
+            response = self.__session.get(url=f'{self.base_url}/groupList', params=content).json()
             return response
         elif self.adapter == 'ws':
             response = self.__ws_send(command='groupList', content=content)
@@ -360,7 +330,7 @@ class Mirai:
         content = {'sessionKey': self.session_key,
                    'target': group}
         if self.adapter == 'http':
-            response = requests.get(url=f'{self.base_url}/memberList', params=content).json()
+            response = self.__session.get(url=f'{self.base_url}/memberList', params=content).json()
             return response
         elif self.adapter == 'ws':
             response = self.__ws_send(command='memberList', content=content)
@@ -371,7 +341,7 @@ class Mirai:
         :return bot 资料"""
         content = {'sessionKey': self.session_key}
         if self.adapter == 'http':
-            response = requests.get(url=f'{self.base_url}/botProfile', params=content).json()
+            response = self.__session.get(url=f'{self.base_url}/botProfile', params=content).json()
             return response
         elif self.adapter == 'ws':
             response = self.__ws_send(command='botProfile', content=content)
@@ -384,7 +354,7 @@ class Mirai:
         content = {'sessionKey': self.session_key,
                    'target': qq}
         if self.adapter == 'http':
-            response = requests.get(url=f'{self.base_url}/friendProfile', params=content).json()
+            response = self.__session.get(url=f'{self.base_url}/friendProfile', params=content).json()
             return response
         elif self.adapter == 'ws':
             response = self.__ws_send(command='friendProfile', content=content)
@@ -400,7 +370,7 @@ class Mirai:
                    'target': group,
                    'memberId': qq}
         if self.adapter == 'http':
-            response = requests.get(url=f'{self.base_url}/memberProfile', params=content).json()
+            response = self.__session.get(url=f'{self.base_url}/memberProfile', params=content).json()
             return response
         elif self.adapter == 'ws':
             response = self.__ws_send(command='memberProfile', content=content)
@@ -412,10 +382,10 @@ class Mirai:
         :param type: 'friend'或'group'或'temp'
         :return: 图片的 imageId, url 和 path
         """
-        response = requests.post(url=f'{self.base_url}/uploadImage',
-                                 data={'sessionKey': self.session_key,
-                                       'type': type},
-                                 files={'img': BytesIO(open(img.path, 'rb').read())}).json()
+        response = self.__session.post(url=f'{self.base_url}/uploadImage',
+                                       data={'sessionKey': self.session_key,
+                                             'type': type},
+                                       files={'img': BytesIO(open(img.path, 'rb').read())}).json()
         return response
 
     def upload_voice(self, voice: Voice, type='group'):
@@ -424,10 +394,10 @@ class Mirai:
         :param type: 当前仅支持 'group'
         :return: 语音的 voiceId, url 和 path
         """
-        response = requests.post(url=f'{self.base_url}/uploadVoice',
-                                 data={'sessionKey': self.session_key,
-                                       'type': type},
-                                 files={'voice': BytesIO(open(voice.path, 'rb').read())}).json()
+        response = self.__session.post(url=f'{self.base_url}/uploadVoice',
+                                       data={'sessionKey': self.session_key,
+                                             'type': type},
+                                       files={'voice': BytesIO(open(voice.path, 'rb').read())}).json()
         return response
 
     def upload_file_and_send(self, path: str, group: int, file, type='Group'):
@@ -437,12 +407,12 @@ class Mirai:
         :param file: 文件内容
         :param type: 当前仅支持 "Group"
         """
-        response = requests.post(url=f'{self.base_url}/uploadFileAndSend',
-                                 data={'sessionKey': self.session_key,
-                                       'type': type,
-                                       'target': group,
-                                       'path': path},
-                                 files={'file': BytesIO(open(file, 'rb').read())}).json()
+        response = self.__session.post(url=f'{self.base_url}/uploadFileAndSend',
+                                       data={'sessionKey': self.session_key,
+                                             'type': type,
+                                             'target': group,
+                                             'path': path},
+                                       files={'file': BytesIO(open(file, 'rb').read())}).json()
         return response
 
     def mute(self, group: int, qq: int, time: int):
@@ -456,7 +426,7 @@ class Mirai:
                    'memberId': qq,
                    'time': time}
         if self.adapter == 'http':
-            response = requests.post(url=f'{self.base_url}/mute', params=content).json()
+            response = self.__session.post(url=f'{self.base_url}/mute', params=content).json()
             return response
         elif self.adapter == 'ws':
             response = self.__ws_send(command='mute', content=content)
@@ -471,7 +441,7 @@ class Mirai:
                    'target': group,
                    'memberId': qq}
         if self.adapter == 'http':
-            response = requests.post(url=f'{self.base_url}/unmute', params=content).json()
+            response = self.__session.post(url=f'{self.base_url}/unmute', params=content).json()
             return response
         elif self.adapter == 'ws':
             response = self.__ws_send(command='unmute', content=content)
@@ -488,7 +458,7 @@ class Mirai:
                    'memberId': qq,
                    'msg': msg}
         if self.adapter == 'http':
-            response = requests.post(url=f'{self.base_url}/kick', params=content).json()
+            response = self.__session.post(url=f'{self.base_url}/kick', params=content).json()
             return response
         elif self.adapter == 'ws':
             response = self.__ws_send(command='kick', content=content)
@@ -501,7 +471,7 @@ class Mirai:
         content = {'sessionKey': self.session_key,
                    'target': group}
         if self.adapter == 'http':
-            response = requests.post(url=f'{self.base_url}/quit', params=content).json()
+            response = self.__session.post(url=f'{self.base_url}/quit', params=content).json()
             return response
         elif self.adapter == 'ws':
             response = self.__ws_send(command='quit', content=content)
@@ -514,7 +484,7 @@ class Mirai:
         content = {'sessionKey': self.session_key,
                    'target': group}
         if self.adapter == 'http':
-            response = requests.post(url=f'{self.base_url}/muteAll', params=content).json()
+            response = self.__session.post(url=f'{self.base_url}/muteAll', params=content).json()
             return response
         elif self.adapter == 'ws':
             response = self.__ws_send(command='muteAll', content=content)
@@ -527,7 +497,7 @@ class Mirai:
         content = {'sessionKey': self.session_key,
                    'target': group}
         if self.adapter == 'http':
-            response = requests.post(url=f'{self.base_url}/unmuteAll',
+            response = self.__session.post(url=f'{self.base_url}/unmuteAll',
                                      params=content).json()
             return response
         elif self.adapter == 'ws':
@@ -542,14 +512,14 @@ class Mirai:
         """
         warnings.warn('由于 mirai-api-http 接口变更，该函数已废弃，请使用 file_list', DeprecationWarning)
         if dir:
-            response = requests.get(url=f'{self.base_url}/groupFileList',
-                                    params={'sessionKey': self.session_key,
-                                            'target': group,
-                                            'dir': dir}).json()
+            response = self.__session.get(url=f'{self.base_url}/groupFileList',
+                                          params={'sessionKey': self.session_key,
+                                                  'target': group,
+                                                  'dir': dir}).json()
         else:
-            response = requests.get(url=f'{self.base_url}/groupFileList',
-                                    params={'sessionKey': self.session_key,
-                                            'target': group}).json()
+            response = self.__session.get(url=f'{self.base_url}/groupFileList',
+                                          params={'sessionKey': self.session_key,
+                                                  'target': group}).json()
         return response
 
     def file_list(self, dir_id: Optional[str] = None, group: Optional[int] = None, qq: Optional[int] = None):
@@ -566,7 +536,7 @@ class Mirai:
         if qq:
             content['qq'] = qq
         if self.adapter == 'http':
-            response = requests.get(url=f'{self.base_url}/file/list', params=content).json()
+            response = self.__session.get(url=f'{self.base_url}/file/list', params=content).json()
             return response
         elif self.adapter == 'ws':
             response = self.__ws_send('file_list', content=content)
@@ -580,16 +550,16 @@ class Mirai:
         """
         warnings.warn('由于 mirai-api-http 接口变更，该函数已废弃，请使用 file_info', DeprecationWarning)
         if isinstance(file, File):
-            response = requests.get(url=f'{self.base_url}/groupFileInfo',
-                                    params={'sessionKey': self.session_key,
-                                            'target': group,
-                                            'id': file.file_id}).json()
+            response = self.__session.get(url=f'{self.base_url}/groupFileInfo',
+                                          params={'sessionKey': self.session_key,
+                                                  'target': group,
+                                                  'id': file.file_id}).json()
         else:
             assert isinstance(file, str)
-            response = requests.get(url=f'{self.base_url}/groupFileInfo',
-                                    params={'sessionKey': self.session_key,
-                                            'target': group,
-                                            'id': file}).json()
+            response = self.__session.get(url=f'{self.base_url}/groupFileInfo',
+                                          params={'sessionKey': self.session_key,
+                                                  'target': group,
+                                                  'id': file}).json()
         return response
 
     def file_info(self, file: Union[File, str], group: Optional[int] = None, qq: Optional[int] = None):
@@ -609,7 +579,7 @@ class Mirai:
         if qq:
             content['qq'] = qq
         if self.adapter == 'http':
-            response = requests.get(url=f'{self.base_url}/file/info', params=content).json()
+            response = self.__session.get(url=f'{self.base_url}/file/info', params=content).json()
             return response
         else:
             response = self.__ws_send('file_info', content=content)
