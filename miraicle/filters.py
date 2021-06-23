@@ -1,10 +1,12 @@
 import json
 import os
 import threading
+from typing import Union
 
 from .message import *
 from .display import end_log
-from .core import Mirai
+from .mirai import Mirai
+from .asyncmirai import AsyncMirai
 
 
 class BaseFilter:
@@ -14,7 +16,7 @@ class BaseFilter:
         if config_file:
             self._load_config()
 
-    def sift(self, funcs, bot: Mirai, msg):
+    def sift(self, funcs, bot: Union[Mirai, AsyncMirai], msg):
         return funcs
 
     @end_log
@@ -38,7 +40,7 @@ class GroupSwitchFilter(BaseFilter):
         self.__func_names = []
         self.__lock = threading.Lock()
 
-    def sift(self, funcs, bot: Mirai, msg):
+    def sift(self, funcs, bot: Union[Mirai, AsyncMirai], msg):
         if not self.__funcs:
             self.__set_funcs(bot.receiver_funcs)
         if isinstance(msg, GroupMessage):
@@ -123,7 +125,7 @@ class BlacklistFilter(BaseFilter):
             self._save_config()
         self.__lock = threading.Lock()
 
-    def sift(self, funcs, bot: Mirai, msg):
+    def sift(self, funcs, bot: Union[Mirai, AsyncMirai], msg):
         if isinstance(msg, GroupMessage):
             funcs_group_filter = bot.filter_funcs.get('BlacklistFilter', [])
             for func in funcs_group_filter:
