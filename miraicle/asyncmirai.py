@@ -149,7 +149,7 @@ class AsyncMirai:
                     print(msg)
                     funcs = self.receiver_funcs.get(msg_type, [])
                     if funcs:
-                        self.handle_msg(funcs, msg)
+                        await self.__call_plugins(funcs, msg)
             except:
                 continue
 
@@ -175,18 +175,19 @@ class AsyncMirai:
                     print(msg)
                     funcs = self.receiver_funcs.get(msg_type, [])
                     if funcs:
-                        self.handle_msg(funcs, msg)
+                        await self.__call_plugins(funcs, msg)
                 else:
                     response = msg_json['data']
                     self.__msg_pool[msg_json['syncId']] = response
             except:
                 pass
 
-    def handle_msg(self, funcs, msg):
+    async def __call_plugins(self, funcs, msg):
         for flt in self.__filters:
             funcs = flt.sift(funcs, self, msg)
-        loop = asyncio.get_event_loop()
-        loop.run_until_complete(asyncio.wait([func(self, msg) for func in funcs]))
+            await flt.async_call(self, msg)
+        for func in funcs:
+            await func(self, msg)
 
     @staticmethod
     def __handle_msg_origin(msg_origin, msg_type):

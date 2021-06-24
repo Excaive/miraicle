@@ -151,7 +151,7 @@ class Mirai:
                     print(msg)
                     funcs = self.receiver_funcs.get(msg_type, [])
                     if funcs:
-                        msg_thread = threading.Thread(target=self.__run_thread, args=(funcs, msg))
+                        msg_thread = threading.Thread(target=self.__call_plugins, args=(funcs, msg))
                         msg_thread.start()
             except:
                 continue
@@ -176,7 +176,7 @@ class Mirai:
                     print(msg)
                     funcs = self.receiver_funcs.get(msg_type, [])
                     if funcs:
-                        msg_thread = threading.Thread(target=self.__run_thread, args=(funcs, msg))
+                        msg_thread = threading.Thread(target=self.__call_plugins, args=(funcs, msg))
                         msg_thread.start()
                 else:
                     response = msg_json['data']
@@ -184,9 +184,10 @@ class Mirai:
             except:
                 pass
 
-    def __run_thread(self, funcs, msg):
+    def __call_plugins(self, funcs, msg):
         for flt in self.__filters:
             funcs = flt.sift(funcs, self, msg)
+            flt.call(self, msg)
         for func in funcs:
             func(self, msg)
 

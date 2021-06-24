@@ -1,7 +1,6 @@
 import json
 import os
 import threading
-from typing import Union
 
 from .message import *
 from .display import end_log
@@ -19,6 +18,22 @@ class BaseFilter:
     def sift(self, funcs, bot: Union[Mirai, AsyncMirai], msg):
         return funcs
 
+    def call(self, bot: Union[Mirai, AsyncMirai], msg):
+        if isinstance(msg, GroupMessage):
+            funcs_group_filter = bot.filter_funcs.get(self._get_class_name(), [])
+            for func in funcs_group_filter:
+                func(bot, msg, self)
+
+    async def async_call(self, bot: Union[Mirai, AsyncMirai], msg):
+        if isinstance(msg, GroupMessage):
+            funcs_group_filter = bot.filter_funcs.get(self._get_class_name(), [])
+            for func in funcs_group_filter:
+                await func(bot, msg, self)
+
+    @classmethod
+    def _get_class_name(cls):
+        return cls.__name__
+
     @end_log
     def _load_config(self):
         if not os.path.exists(self.config_file):
@@ -34,6 +49,7 @@ class BaseFilter:
 
 class GroupSwitchFilter(BaseFilter):
     """群组件开关"""
+
     def __init__(self, config_file):
         super().__init__(config_file)
         self.__funcs = []
@@ -43,10 +59,6 @@ class GroupSwitchFilter(BaseFilter):
     def sift(self, funcs, bot: Union[Mirai, AsyncMirai], msg):
         if not self.__funcs:
             self.__set_funcs(bot.receiver_funcs)
-        if isinstance(msg, GroupMessage):
-            funcs_group_filter = bot.filter_funcs.get('GroupSwitchFilter', [])
-            for func in funcs_group_filter:
-                func(bot, msg, self)
         if isinstance(msg, (GroupMessage, GroupRecallEvent)):
             funcs_o = []
             group = str(msg.group)
@@ -118,6 +130,7 @@ class GroupSwitchFilter(BaseFilter):
 
 class BlacklistFilter(BaseFilter):
     """黑名单"""
+
     def __init__(self, config_file):
         super().__init__(config_file)
         if 'blacklist' not in self.config:
@@ -126,10 +139,6 @@ class BlacklistFilter(BaseFilter):
         self.__lock = threading.Lock()
 
     def sift(self, funcs, bot: Union[Mirai, AsyncMirai], msg):
-        if isinstance(msg, GroupMessage):
-            funcs_group_filter = bot.filter_funcs.get('BlacklistFilter', [])
-            for func in funcs_group_filter:
-                func(bot, msg, self)
         if isinstance(msg, (GroupMessage, FriendMessage, TempMessage)):
             if str(msg.sender) in self.config['blacklist']:
                 return []
