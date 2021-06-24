@@ -1,6 +1,7 @@
 import json
 import os
 import threading
+from abc import ABC, abstractmethod
 
 from .message import *
 from .display import end_log
@@ -8,31 +9,31 @@ from .mirai import Mirai
 from .asyncmirai import AsyncMirai
 
 
-class BaseFilter:
+class BaseFilter(ABC):
+    """过滤器基类，不可实例化"""
+
     def __init__(self, config_file=None):
         self.config_file = config_file
         self.config = {}
         if config_file:
             self._load_config()
 
+    @abstractmethod
     def sift(self, funcs, bot: Union[Mirai, AsyncMirai], msg):
-        return funcs
+        """过滤操作，返回 funcs 的一个子列表，这些函数将对 msg 进行处理；
+        子类需实现该方法"""
 
     def call(self, bot: Union[Mirai, AsyncMirai], msg):
         if isinstance(msg, GroupMessage):
-            funcs_group_filter = bot.filter_funcs.get(self._get_class_name(), [])
+            funcs_group_filter = bot.filter_funcs.get(self.__class__.__name__, [])
             for func in funcs_group_filter:
                 func(bot, msg, self)
 
     async def async_call(self, bot: Union[Mirai, AsyncMirai], msg):
         if isinstance(msg, GroupMessage):
-            funcs_group_filter = bot.filter_funcs.get(self._get_class_name(), [])
+            funcs_group_filter = bot.filter_funcs.get(self.__class__.__name__, [])
             for func in funcs_group_filter:
                 await func(bot, msg, self)
-
-    @classmethod
-    def _get_class_name(cls):
-        return cls.__name__
 
     @end_log
     def _load_config(self):
