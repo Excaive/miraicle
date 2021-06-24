@@ -381,7 +381,7 @@ class Mirai:
     def upload_img(self, img: Image, type='group'):
         """图片文件上传，当前仅支持 http
         :param img: 上传的 Image 对象
-        :param type: 'friend'或'group'或'temp'
+        :param type: 'friend' 或 'group' 或 'temp'
         :return: 图片的 imageId, url 和 path
         """
         response = self.__session.post(url=f'{self.base_url}/uploadImage',

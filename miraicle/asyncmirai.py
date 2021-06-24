@@ -7,8 +7,6 @@ from typing import Dict
 from .message import *
 from .display import start_log, end_log, color
 
-import websocket
-
 
 class AsyncMirai:
     receiver_funcs = {}
@@ -34,7 +32,7 @@ class AsyncMirai:
         self.session_key: Optional[str] = session_key
         self.adapter: str = adapter
 
-        self.__session: Optional[Union[aiohttp.ClientSession]] = None
+        self.__session: Optional[Union[aiohttp.ClientSession, aiohttp.ClientWebSocketResponse]] = None
         self.__msg_pool: Dict[str, json] = {}
 
     async def get_version(self):
@@ -50,7 +48,8 @@ class AsyncMirai:
             loop = asyncio.get_event_loop()
             loop.run_until_complete(self.__http_run())
         elif self.adapter == 'ws':
-            self.__ws_run()
+            loop = asyncio.get_event_loop()
+            loop.run_until_complete(self.__ws_run())
 
     async def __http_run(self):
         """使用 http adapter 运行"""
@@ -76,22 +75,26 @@ class AsyncMirai:
                     raise ValueError('unknown response')
         await self.__http_main_loop()
 
-    def __ws_run(self):
+    async def __ws_run(self):
         """使用 ws adapter 运行"""
-        connect_response = self.__ws_connect()
-        connect_data = connect_response.get('data', {})
-        if all(
-                ['code' in connect_data and connect_data['code'] == 0,
-                 'session' in connect_data and connect_data['session']]
-        ):
-            self.session_key = connect_data['session']
-            print(f"sessionKey: {connect_data['session']}")
-        else:
-            if 'code' in connect_data and connect_data['code'] == 1:
-                raise ValueError('invalid verifyKey')
+        async with aiohttp.ClientSession().ws_connect(f'{self.base_url}/all',
+                                                      headers={'verifyKey': self.verify_key,
+                                                               'qq': str(self.qq)}) as ws:
+            self.__session = ws
+            connect_response = await ws.receive()
+            connect_data = (json.loads(connect_response.data).get('data', {}))
+            if all(
+                    ['code' in connect_data and connect_data['code'] == 0,
+                     'session' in connect_data and connect_data['session']]
+            ):
+                self.session_key = connect_data['session']
+                print(f"sessionKey: {connect_data['session']}")
             else:
-                raise ValueError('unknown response')
-        self.__ws_main_loop()
+                if 'code' in connect_data and connect_data['code'] == 1:
+                    raise ValueError('invalid verifyKey')
+                else:
+                    raise ValueError('unknown response')
+            await self.__ws_main_loop()
 
     @end_log
     async def __http_verify(self):
@@ -119,20 +122,10 @@ class AsyncMirai:
             response = await r.json()
         return response
 
-    @end_log
-    def __ws_connect(self):
-        """websocket 创建连接"""
-        self.__session = websocket.WebSocket()
-        self.__session.connect(f'{self.base_url}/all',
-                               header={'verifyKey': self.verify_key,
-                                       'qq': str(self.qq)})
-        response = json.loads(self.__session.recv())
-        return response
-
-    def __ws_send(self, command: str, content: json):
+    async def __ws_send(self, command: str, content: json):
         """websocket 发送数据"""
         sync_id = str(random.randint(0, 100_000_000))
-        self.__session.send(
+        await self.__session.send_str(
             json.dumps({'syncId': sync_id,
                         'command': command,
                         'subCommand': None,
@@ -140,7 +133,7 @@ class AsyncMirai:
         for _ in range(100):
             if sync_id in self.__msg_pool:
                 return self.__msg_pool.pop(sync_id)
-            time.sleep(0.2)
+            await asyncio.sleep(0.2)
 
     @start_log
     async def __http_main_loop(self):
@@ -169,11 +162,12 @@ class AsyncMirai:
         return response
 
     @start_log
-    def __ws_main_loop(self):
+    async def __ws_main_loop(self):
         """ws 主循环"""
         while True:
+            response = await self.__session.receive()
             try:
-                msg_json = json.loads(self.__session.recv())
+                msg_json = json.loads(response.data)
                 if msg_json['syncId'] == '-1':
                     msg_origin = msg_json['data']
                     msg_type = msg_origin['type']
@@ -217,10 +211,10 @@ class AsyncMirai:
                    'messageChain': self.__handle_friend_msg_chain(msg)}
         if self.adapter == 'http':
             async with self.__session.post(url=f'{self.base_url}/sendFriendMessage', json=content) as r:
-                response = r.json()
+                response = await r.json()
             return response
         elif self.adapter == 'ws':
-            response = self.__ws_send(command='sendFriendMessage', content=content)
+            response = await self.__ws_send(command='sendFriendMessage', content=content)
             return response
 
     async def send_temp_msg(self, group: int, qq: int, msg):
@@ -239,7 +233,7 @@ class AsyncMirai:
                 response = await r.json()
             return response
         elif self.adapter == 'ws':
-            response = self.__ws_send(command='sendTempMessage', content=content)
+            response = await self.__ws_send(command='sendTempMessage', content=content)
             return response
 
     @staticmethod
@@ -276,7 +270,7 @@ class AsyncMirai:
                 response = await r.json()
             return response
         elif self.adapter == 'ws':
-            response = self.__ws_send(command='sendGroupMessage', content=content)
+            response = await self.__ws_send(command='sendGroupMessage', content=content)
             return response
 
     @staticmethod
@@ -308,7 +302,7 @@ class AsyncMirai:
                 response = await r.json()
             return response
         elif self.adapter == 'ws':
-            response = self.__ws_send(command='friendList', content=content)
+            response = await self.__ws_send(command='friendList', content=content)
             return response
 
     async def recall(self, id: int):
@@ -323,7 +317,7 @@ class AsyncMirai:
                 response = await r.json()
             return response
         elif self.adapter == 'ws':
-            response = self.__ws_send(command='recall', content=content)
+            response = await self.__ws_send(command='recall', content=content)
             return response
 
     async def get_group_list(self):
@@ -334,7 +328,7 @@ class AsyncMirai:
                 response = await r.json()
             return response
         elif self.adapter == 'ws':
-            response = self.__ws_send(command='groupList', content=content)
+            response = await self.__ws_send(command='groupList', content=content)
             return response
 
     async def get_member_list(self, group):
@@ -346,7 +340,7 @@ class AsyncMirai:
                 response = await r.json()
             return response
         elif self.adapter == 'ws':
-            response = self.__ws_send(command='memberList', content=content)
+            response = await self.__ws_send(command='memberList', content=content)
             return response
 
     async def bot_profile(self):
@@ -358,7 +352,7 @@ class AsyncMirai:
                 response = await r.json()
             return response
         elif self.adapter == 'ws':
-            response = self.__ws_send(command='botProfile', content=content)
+            response = await self.__ws_send(command='botProfile', content=content)
             return response
 
     async def friend_profile(self, qq):
@@ -372,7 +366,7 @@ class AsyncMirai:
                 response = await r.json()
             return response
         elif self.adapter == 'ws':
-            response = self.__ws_send(command='friendProfile', content=content)
+            response = await self.__ws_send(command='friendProfile', content=content)
             return response
 
     async def member_profile(self, group: int, qq: int):
@@ -389,13 +383,13 @@ class AsyncMirai:
                 response = await r.json()
             return response
         elif self.adapter == 'ws':
-            response = self.__ws_send(command='memberProfile', content=content)
+            response = await self.__ws_send(command='memberProfile', content=content)
             return response
 
     async def upload_img(self, img: Image, type='group'):
         """图片文件上传，当前仅支持 http
         :param img: 上传的 Image 对象
-        :param type: 'friend'或'group'或'temp'
+        :param type: 'friend' 或 'group' 或 'temp'
         :return: 图片的 imageId, url 和 path
         """
         async with self.__session.post(url=f'{self.base_url}/uploadImage',
@@ -449,7 +443,7 @@ class AsyncMirai:
                 response = await r.json()
             return response
         elif self.adapter == 'ws':
-            response = self.__ws_send(command='mute', content=content)
+            response = await self.__ws_send(command='mute', content=content)
             return response
 
     async def unmute(self, group: int, qq: int):
@@ -465,7 +459,7 @@ class AsyncMirai:
                 response = await r.json()
             return response
         elif self.adapter == 'ws':
-            response = self.__ws_send(command='unmute', content=content)
+            response = await self.__ws_send(command='unmute', content=content)
             return response
 
     async def kick(self, group: int, qq: int, msg=''):
@@ -483,7 +477,7 @@ class AsyncMirai:
                 response = await r.json()
             return response
         elif self.adapter == 'ws':
-            response = self.__ws_send(command='kick', content=content)
+            response = await self.__ws_send(command='kick', content=content)
             return response
 
     async def quit(self, group: int):
@@ -497,7 +491,7 @@ class AsyncMirai:
                 response = await r.json()
             return response
         elif self.adapter == 'ws':
-            response = self.__ws_send(command='quit', content=content)
+            response = await self.__ws_send(command='quit', content=content)
             return response
 
     async def mute_all(self, group: int):
@@ -511,7 +505,7 @@ class AsyncMirai:
                 response = await r.json()
             return response
         elif self.adapter == 'ws':
-            response = self.__ws_send(command='muteAll', content=content)
+            response = await self.__ws_send(command='muteAll', content=content)
             return response
 
     async def unmute_all(self, group: int):
@@ -526,7 +520,7 @@ class AsyncMirai:
                 response = await r.json()
             return response
         elif self.adapter == 'ws':
-            response = self.__ws_send(command='unmuteAll', content=content)
+            response = await self.__ws_send(command='unmuteAll', content=content)
             return response
 
     async def file_list(self, dir_id: Optional[str] = None, group: Optional[int] = None, qq: Optional[int] = None):
@@ -547,7 +541,7 @@ class AsyncMirai:
                 response = await r.json()
             return response
         elif self.adapter == 'ws':
-            response = self.__ws_send('file_list', content=content)
+            response = await self.__ws_send('file_list', content=content)
             return response
 
     async def file_info(self, file: Union[File, str], group: Optional[int] = None, qq: Optional[int] = None):
@@ -571,7 +565,7 @@ class AsyncMirai:
                 response = await r.json()
             return response
         else:
-            response = self.__ws_send('file_info', content=content)
+            response = await self.__ws_send('file_info', content=content)
             return response
 
     async def is_owner(self, qq: int, group: int):
