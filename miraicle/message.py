@@ -1,11 +1,30 @@
 import time
 import random
 from typing import Optional, Union, List
+from abc import ABC, abstractmethod
 
 from .display import color
 
 
-class Plain:
+class Element(ABC):
+    """消息元素基类"""
+
+    @abstractmethod
+    def to_json(self):
+        """将消息对象转换为 json"""
+
+    @staticmethod
+    @abstractmethod
+    def from_json(json: dict):
+        """将 json 转换为消息对象"""
+
+    @classmethod
+    def subclasses_str(cls):
+        """返回所有子类名字符串的列表"""
+        return [c.__name__ for c in cls.__subclasses__()]
+
+
+class Plain(Element):
     def __init__(self, text):
         self.text = text
 
@@ -27,7 +46,7 @@ class Plain:
         return Plain(text)
 
 
-class At:
+class At(Element):
     def __init__(self, qq, display: str = None):
         self.qq = qq
         self.display = display
@@ -54,7 +73,7 @@ class At:
         return At(qq, display)
 
 
-class AtAll:
+class AtAll(Element):
     def __init__(self):
         pass
 
@@ -67,8 +86,7 @@ class AtAll:
         else:
             return False
 
-    @staticmethod
-    def to_json():
+    def to_json(self):
         return {'type': 'AtAll'}
 
     @staticmethod
@@ -76,7 +94,7 @@ class AtAll:
         return AtAll()
 
 
-class Face:
+class Face(Element):
     def __init__(self, face_id: int = None, name: str = None):
         self.face_id = face_id
         self.name = name
@@ -116,7 +134,7 @@ class Face:
         return Face(name=name)
 
 
-class Image:
+class Image(Element):
     def __init__(self, path: str = None, url: str = None, image_id: str = None):
         self.path = path
         self.url = url
@@ -172,7 +190,7 @@ class Image:
         return Image(image_id=image_id)
 
 
-class FlashImage:
+class FlashImage(Element):
     def __init__(self, path: str = None, url: str = None, image_id: str = None):
         self.path = path
         self.url = url
@@ -228,7 +246,7 @@ class FlashImage:
         return FlashImage(image_id=image_id)
 
 
-class Voice:
+class Voice(Element):
     def __init__(self, path: str = None, url: str = None, voice_id: str = None):
         self.path = path
         self.url = url
@@ -274,7 +292,7 @@ class Voice:
         return Voice(voice_id=voice_id)
 
 
-class Xml:
+class Xml(Element):
     def __init__(self, xml):
         self.xml = xml
 
@@ -296,7 +314,7 @@ class Xml:
         return Xml(xml=xml)
 
 
-class Json:
+class Json(Element):
     def __init__(self, json):
         self.json = json
 
@@ -318,7 +336,7 @@ class Json:
         return Json(json=json)
 
 
-class App:
+class App(Element):
     def __init__(self, content):
         self.content = content
 
@@ -340,7 +358,29 @@ class App:
         return App(content=json)
 
 
-class Dice:
+class Poke(Element):
+    def __init__(self, name: str):
+        self.name = name
+
+    def __repr__(self):
+        return f'[Poke:{self.name}]'
+
+    def __eq__(self, other):
+        if isinstance(other, Poke):
+            return self.name == other.name
+        else:
+            return False
+
+    def to_json(self):
+        return {'type': 'Poke', 'name': self.name}
+
+    @staticmethod
+    def from_json(json: dict):
+        name = json.get('name', None)
+        return Poke(name=name)
+
+
+class Dice(Element):
     def __init__(self, value: Optional[int] = None):
         self.value = value if value else random.randint(1, 6)
 
@@ -362,26 +402,35 @@ class Dice:
         return Dice(value=value)
 
 
-class File:
-    def __init__(self, file_id: str, internal_id: int, name: str, size: int):
+class File(Element):
+    def __init__(self, file_id: str, name: str, size: int):
         self.file_id = file_id
-        self.internal_id = internal_id
         self.name = name
         self.size = size
 
     def __repr__(self):
         return f'[File:{self.name} | {self.file_id}]'
 
+    def __eq__(self, other):
+        if isinstance(other, File):
+            return self.file_id == other.file_id and self.name == other.name and self.size == other.size
+        else:
+            return False
+
+    def to_json(self):
+        return {'type': 'File', 'id': self.file_id, 'name': self.name, 'size': self.size}
+
     @staticmethod
     def from_json(json: dict):
         file_id = json.get('id', None)
-        internal_id = json.get('internalId', None)
         name = json.get('name', None)
         size = json.get('size', None)
-        return File(file_id=file_id, internal_id=internal_id, name=name, size=size)
+        return File(file_id=file_id, name=name, size=size)
 
 
 class Message:
+    """消息基类"""
+
     def __init__(self, msg: dict):
         self.json = msg
         msg_chain = msg.get('messageChain', None)
@@ -398,8 +447,7 @@ class Message:
             chain = []
             text = ''
             for ele in msg_chain[1:]:
-                if ele['type'] in ['Plain', 'At', 'AtAll', 'Face', 'Image', 'FlashImage',
-                                   'Voice', 'Xml', 'Json', 'App', 'Dice', 'File']:
+                if ele['type'] in Element.subclasses_str():
                     instance = eval(ele['type']).from_json(ele)
                     chain.append(instance)
                     text += instance.__repr__()
@@ -416,6 +464,7 @@ class Message:
 
     @property
     def plain(self) -> str:
+        """返回消息链中的所有文字"""
         text = ''
         for ele in self.chain:
             if type(ele) == Plain:
@@ -424,6 +473,7 @@ class Message:
 
     @property
     def first_image(self) -> Optional[Union[Image, FlashImage]]:
+        """返回消息链中的第一张图片"""
         for ele in self.chain:
             if type(ele) in [Image, FlashImage]:
                 return ele
@@ -431,10 +481,12 @@ class Message:
 
     @property
     def images(self) -> List[Union[Image, FlashImage]]:
+        """返回消息链中所有图片的列表"""
         return [ele for ele in self.chain if type(ele) in [Image, FlashImage]]
 
     @property
     def file(self) -> Optional[File]:
+        """返回消息链中的文件"""
         for ele in self.chain:
             if isinstance(ele, File):
                 return ele
@@ -442,6 +494,8 @@ class Message:
 
 
 class GroupMessage(Message):
+    """群消息"""
+
     def __init__(self, msg: dict):
         super().__init__(msg)
         sender = msg.get('sender', {})
@@ -457,6 +511,8 @@ class GroupMessage(Message):
 
 
 class FriendMessage(Message):
+    """好友消息"""
+
     def __init__(self, msg: dict):
         super().__init__(msg)
         sender = msg.get('sender', {})
@@ -469,6 +525,8 @@ class FriendMessage(Message):
 
 
 class TempMessage(Message):
+    """群临时消息"""
+
     def __init__(self, msg: dict):
         super().__init__(msg)
         sender = msg.get('sender', {})

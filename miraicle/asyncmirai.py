@@ -248,7 +248,7 @@ class AsyncMirai:
                     msg_chain.append(ele.to_json())
         elif isinstance(msg, str):
             msg_chain.append(Plain(msg).to_json())
-        elif isinstance(msg, (Plain, At, AtAll, Face, Image, FlashImage, Voice, Xml, Json, App, Dice)):
+        elif isinstance(msg, Element):
             msg_chain.append(msg.to_json())
         print(color(msg_chain, 'blue'))
         return msg_chain
@@ -290,7 +290,7 @@ class AsyncMirai:
                 msg_chain = msg.json['messageChain']
         elif isinstance(msg, str):
             msg_chain.append(Plain(msg).to_json())
-        elif isinstance(msg, (Plain, At, AtAll, Face, Image, FlashImage, Voice, Xml, Json, App, Dice)):
+        elif isinstance(msg, Element):
             msg_chain.append(msg.to_json())
         print(color(msg_chain, 'blue'))
         return msg_chain
