@@ -1,6 +1,7 @@
 import aiohttp
 import asyncio
 import json
+import threading
 from io import BytesIO
 from typing import Dict
 
@@ -47,6 +48,8 @@ class AsyncMirai:
         if self.adapter == 'http':
             loop = asyncio.get_event_loop()
             loop.run_until_complete(self.__http_run())
+            # asyncio.run_coroutine_threadsafe(self.__http_run(), loop)
+            # loop.run_until_complete(self.__http_run())
         elif self.adapter == 'ws':
             loop = asyncio.get_event_loop()
             loop.run_until_complete(self.__ws_run())
@@ -130,7 +133,7 @@ class AsyncMirai:
                         'command': command,
                         'subCommand': None,
                         'content': content}))
-        for _ in range(100):
+        for _ in range(25):
             if sync_id in self.__msg_pool:
                 return self.__msg_pool.pop(sync_id)
             await asyncio.sleep(0.2)
@@ -149,7 +152,7 @@ class AsyncMirai:
                     print(msg)
                     funcs = self.receiver_funcs.get(msg_type, [])
                     if funcs:
-                        await self.__call_plugins(funcs, msg)
+                        await self.__http_call_plugins(funcs, msg)
             except:
                 continue
 
@@ -175,19 +178,29 @@ class AsyncMirai:
                     print(msg)
                     funcs = self.receiver_funcs.get(msg_type, [])
                     if funcs:
-                        await self.__call_plugins(funcs, msg)
+                        msg_thread = threading.Thread(target=self.__ws_call_plugins, args=(funcs, msg))
+                        msg_thread.start()
                 else:
                     response = msg_json['data']
                     self.__msg_pool[msg_json['syncId']] = response
             except:
                 pass
 
-    async def __call_plugins(self, funcs, msg):
+    async def __http_call_plugins(self, funcs, msg):
         for flt in self.__filters:
             funcs = flt.sift(funcs, self, msg)
-            await flt.async_call(self, msg)
-        for func in funcs:
-            await func(self, msg)
+        tasks = [asyncio.ensure_future(flt.async_call(self, msg)) for flt in self.__filters] + \
+                [asyncio.ensure_future(func(self, msg)) for func in funcs]
+        for task in tasks:
+            await task
+
+    def __ws_call_plugins(self, funcs, msg):
+        for flt in self.__filters:
+            funcs = flt.sift(funcs, self, msg)
+        loop = asyncio.new_event_loop()
+        loop.run_until_complete(
+            asyncio.wait([flt.async_call(self, msg) for flt in self.__filters] +
+                         [func(self, msg) for func in funcs]))
 
     @staticmethod
     def __handle_msg_origin(msg_origin, msg_type):
