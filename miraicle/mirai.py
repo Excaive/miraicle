@@ -8,6 +8,7 @@ from typing import Dict
 
 from .message import *
 from .display import start_log, end_log, color
+from .schedule import Scheduler
 
 
 class Mirai:
@@ -36,6 +37,7 @@ class Mirai:
 
         self.__session: Optional[Union[requests.session, websocket.WebSocket]] = None
         self.__msg_pool: Dict[str, json] = {}
+        self.__scheduler: Scheduler = Scheduler()
 
     def get_version(self):
         """获取 mirai-api-http 的版本号"""
@@ -142,6 +144,7 @@ class Mirai:
         """http 主循环"""
         while True:
             time.sleep(0.5)
+            self.__scheduler.run(self)
             try:
                 msg_json = self.__http_fetch_msg(10)
                 msg_data = msg_json['data']
@@ -166,6 +169,8 @@ class Mirai:
     @start_log
     def __ws_main_loop(self):
         """ws 主循环"""
+        schedule_thread = threading.Thread(target=self.__call_schedule_plugins)
+        schedule_thread.start()
         while True:
             try:
                 msg_json = json.loads(self.__session.recv())
@@ -190,6 +195,12 @@ class Mirai:
             flt.call(self, msg)
         for func in funcs:
             func(self, msg)
+
+    def __call_schedule_plugins(self):
+        while True:
+            self.__scheduler.run(self)
+            time.sleep(0.5)
+
 
     @staticmethod
     def __handle_msg_origin(msg_origin, msg_type):

@@ -7,6 +7,7 @@ from typing import Dict
 
 from .message import *
 from .display import start_log, end_log, color
+from .schedule import Scheduler
 
 
 class AsyncMirai:
@@ -35,6 +36,7 @@ class AsyncMirai:
 
         self.__session: Optional[Union[aiohttp.ClientSession, aiohttp.ClientWebSocketResponse]] = None
         self.__msg_pool: Dict[str, json] = {}
+        self.__scheduler: Scheduler = Scheduler()
 
     async def get_version(self):
         """获取 mirai-api-http 的版本号"""
@@ -48,8 +50,6 @@ class AsyncMirai:
         if self.adapter == 'http':
             loop = asyncio.get_event_loop()
             loop.run_until_complete(self.__http_run())
-            # asyncio.run_coroutine_threadsafe(self.__http_run(), loop)
-            # loop.run_until_complete(self.__http_run())
         elif self.adapter == 'ws':
             loop = asyncio.get_event_loop()
             loop.run_until_complete(self.__ws_run())
@@ -143,6 +143,7 @@ class AsyncMirai:
         """http 主循环"""
         while True:
             await asyncio.sleep(0.5)
+            await self.__scheduler.async_run(self)
             try:
                 msg_json = await self.__http_fetch_msg(10)
                 msg_data = msg_json['data']
@@ -167,6 +168,8 @@ class AsyncMirai:
     @start_log
     async def __ws_main_loop(self):
         """ws 主循环"""
+        schedule_thread = threading.Thread(target=self.__call_schedule_plugins)
+        schedule_thread.start()
         while True:
             response = await self.__session.receive()
             try:
@@ -201,6 +204,12 @@ class AsyncMirai:
         loop.run_until_complete(
             asyncio.wait([flt.async_call(self, msg) for flt in self.__filters] +
                          [func(self, msg) for func in funcs]))
+
+    def __call_schedule_plugins(self):
+        loop = asyncio.new_event_loop()
+        while True:
+            loop.run_until_complete(self.__scheduler.async_run(self))
+            time.sleep(0.5)
 
     @staticmethod
     def __handle_msg_origin(msg_origin, msg_type):
