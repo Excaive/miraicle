@@ -11,16 +11,19 @@
 </div>
 
 ## 安装
+
 `pip install miraicle`
 
 ## 准备
+
 `miraicle` 是基于 [mirai-api-http](https://github.com/project-mirai/mirai-api-http) 的，`mirai-api-http` 又是 `mirai-console` 的一个插件。在使用 `miraicle` 之前，请按照 `mirai-api-http` 的文档进行环境搭建和插件配置。
 
-你可以使用 [mirai-console-loader](https://github.com/iTXTech/mirai-console-loader) ，它可以对 `mirai-console` 进行一键启动和自动更新。安装好 `mirai-api-http` 之后，将 `mirai-api-http` 的 `setting.yml` 模板复制粘贴到配置文件里，并自己设置一个 `verifyKey` 和 `port`。
+你可以使用 [mirai-console-loader](https://github.com/iTXTech/mirai-console-loader) ，它会对 `mirai-console` 进行一键启动和自动更新。安装好 `mirai-api-http` 之后，将 `mirai-api-http` 的 `setting.yml` 模板复制粘贴到配置文件里，并自己设置一个 `verifyKey` 和 `port`。
 
 > `mirai-api-http` 目前已经更新到 `2.x` 版本，这与 `1.x` 版本相比有不少变动。`miraicle` 仅支持 `2.x` 版本的 `mirai-api-http` ，请检查你的 `mirai-api-http` 版本是否正确。
 
 ## 开始使用
+
 首先启动 `mirai-console` 并登陆你的机器人账号。你可以查看 [mirai-console](https://github.com/mamoe/mirai-console) 的文档，或者在 `mirai-console` 中输入 `/help` 来学习如何使用。
 
 现在一切工作已经准备完成，你可以开始动手写自己的 bot 了。打开你最熟悉的编辑器或 IDE ，创建一个名为 `bot.py` 的文件，内容如下：
@@ -76,14 +79,88 @@ Hello world!
 
 > `miraicle` 支持的消息链类型包括 `GroupMessage`、`FriendMessage` 和 `TempMessage`，分别代表群消息、好友消息和群临时消息，`miraicle` 会把消息链封装成对应的对象。除此之外，你还可以在 `receiver` 的参数中填写各种 [事件类型](https://github.com/project-mirai/mirai-api-http/blob/master/docs/api/EventType.md) ，不过，对于大多数事件类型，`miraicle` 没有对它们进行封装，传入的消息对象是个 `dict`。
 
-<!-- ## 消息链
+## 消息链
 
-TODO -->
+我们已经成功地让 bot 发送文字消息。那么，如何让 bot 发送带有表情、图片的更加复杂的消息呢？看完本节之后，你会得到答案。
 
-<!-- ## 使用过滤器
+可能你注意到了，上一节中已经提到了“消息链”这个名词。在 `mirai` 的设计中，消息不是一串字符，而是由文字、表情、图片等消息元素组成的列表。
 
-TODO -->
+`miraicle` 也沿用了这样的设计。你可以使用 `msg.chain` 来访问消息对象对应的消息链，它是一个装有各种消息元素的列表，这些消息元素均继承自 `Element`。
 
-<!-- ## 添加计划任务
+当你让 bot 发送消息时，也可以构造一个这样的列表。让我们来把上一节中的 `hello_to_group` 函数改写一下：
 
-TODO -->
+```Python
+@miraicle.Mirai.receiver('GroupMessage')
+def hello_to_group(bot: miraicle.Mirai, msg: miraicle.GroupMessage):
+    bot.send_group_msg(group=msg.group, msg=[miraicle.Plain('Hello world!'),
+                                             miraicle.Face().from_face_id(74),
+                                             miraicle.At(qq=msg.sender)])
+```
+
+运行程序，现在当你发送一条群消息之后，bot 会发送带有表情的 'Hello world!' ，并 at 你。
+
+下面对各种消息元素进行介绍，你可以使用这些消息元素，构造更加复杂的消息链。
+
+### 文字 (Plain)
+
+TODO
+
+### At
+
+TODO
+
+### At 全体成员 (AtAll)
+
+TODO
+
+### 表情 (Face)
+
+TODO
+
+### 图片 (Image)
+
+TODO
+
+### 闪照 (FlashImage)
+
+TODO
+
+### 语音 (Voice)
+
+TODO
+
+### Xml
+
+TODO
+
+### Json
+
+TODO
+
+### App
+
+TODO
+
+### Poke
+
+TODO
+
+### 骰子 (Dice)
+
+TODO
+
+### 文件 (File)
+
+TODO
+
+## 编写插件
+
+TODO
+
+## 使用过滤器
+
+TODO
+
+## 添加计划任务
+
+TODO
