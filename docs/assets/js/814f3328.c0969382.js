@@ -1,0 +1,1 @@
+(self.webpackChunkmiraicle_document=self.webpackChunkmiraicle_document||[]).push([[535],{6353:function(e){"use strict";e.exports=JSON.parse('{"title":"Recent posts","items":[{"title":"Welcome","permalink":"/miraicle/blog/welcome"},{"title":"Hello","permalink":"/miraicle/blog/hello-world"},{"title":"Hola","permalink":"/miraicle/blog/hola"}]}')}}]);

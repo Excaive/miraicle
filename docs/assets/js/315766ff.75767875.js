@@ -1,0 +1,1 @@
+(self.webpackChunkmiraicle_document=self.webpackChunkmiraicle_document||[]).push([[653],{7743:function(e){"use strict";e.exports=JSON.parse('{"allTagsPath":"/miraicle/blog/tags","slug":"hello","name":"hello","count":2,"permalink":"/miraicle/blog/tags/hello"}')}}]);

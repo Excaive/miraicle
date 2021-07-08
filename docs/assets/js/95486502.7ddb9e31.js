@@ -1,0 +1,1 @@
+(self.webpackChunkmiraicle_document=self.webpackChunkmiraicle_document||[]).push([[121],{6303:function(e){"use strict";e.exports=JSON.parse('{"permalink":"/miraicle/blog","page":1,"postsPerPage":10,"totalPages":1,"totalCount":3,"previousPage":null,"nextPage":null,"blogDescription":"Blog","blogTitle":"Blog"}')}}]);
