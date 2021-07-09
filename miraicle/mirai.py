@@ -352,7 +352,8 @@ class Mirai:
 
     def bot_profile(self):
         """获取 bot 资料
-        :return bot 资料"""
+        :return bot 资料
+        """
         content = {'sessionKey': self.session_key}
         if self.adapter == 'http':
             response = self.__session.get(url=f'{self.base_url}/botProfile', params=content).json()
@@ -364,7 +365,8 @@ class Mirai:
     def friend_profile(self, qq):
         """获取好友资料
         :param qq: 好友 QQ 号
-        :return 好友资料"""
+        :return 好友资料
+        """
         content = {'sessionKey': self.session_key,
                    'target': qq}
         if self.adapter == 'http':

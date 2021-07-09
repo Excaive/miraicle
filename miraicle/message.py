@@ -438,10 +438,11 @@ class Message:
             self.id = msg_chain[0].get('id', None)
         except:
             self.id = None
+        self.time = msg_chain[0].get('time', 0)
         try:
-            self.time = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(msg_chain[0].get('time', 0)))
+            self._time = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(self.time))
         except:
-            self.time = None
+            self._time = None
 
         try:
             chain = []
@@ -460,7 +461,9 @@ class Message:
             self.text = ''
 
     def __eq__(self, other):
-        return True if self.chain == other.chain else False
+        if isinstance(other, Message):
+            return True if self.chain == other.chain else False
+        return False
 
     @property
     def plain(self) -> str:
@@ -506,7 +509,7 @@ class GroupMessage(Message):
         self.group_name = group.get('name', None)
 
     def __repr__(self):
-        return f'{self.time} GroupMessage #{self.id} {self.group_name}({self.group})' \
+        return f'{self._time} GroupMessage #{self.id} {self.group_name}({self.group})' \
                f' - {self.sender_name}({self.sender}): {self.text.__repr__()}'
 
 
@@ -520,7 +523,7 @@ class FriendMessage(Message):
         self.sender_name = sender.get('nickname', None)
 
     def __repr__(self):
-        return f'{self.time} FriendMessage #{self.id}' \
+        return f'{self._time} FriendMessage #{self.id}' \
                f' - {self.sender_name}({self.sender}): {self.text.__repr__()}'
 
 
@@ -537,7 +540,7 @@ class TempMessage(Message):
         self.group_name = group.get('name', None)
 
     def __repr__(self):
-        return f'{self.time} TempMessage #{self.id} {self.group_name}({self.group})' \
+        return f'{self._time} TempMessage #{self.id} {self.group_name}({self.group})' \
                f' - {self.sender_name}({self.sender}): {self.text.__repr__()}'
 
 
