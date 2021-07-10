@@ -12,7 +12,9 @@
 
 ## 安装
 
-`pip install miraicle`
+``` bash
+pip install miraicle
+```
 
 ## 示例
 
@@ -30,7 +32,7 @@ def hello_to_friend(bot: miraicle.Mirai, msg: miraicle.FriendMessage):
     bot.send_friend_msg(qq=msg.sender, msg='Hello world!')
 
 
-qq = 123456789              # 你登陆的机器人 QQ 号
+qq = 123456789              # 你登录的机器人 QQ 号
 verify_key = 'miraicle'     # 你在 setting.yml 中设置的 verifyKey
 port = 8080                 # 你在 setting.yml 中设置的 port (http)
 
@@ -38,4 +40,4 @@ bot = miraicle.Mirai(qq=qq, verify_key=verify_key, port=port)
 bot.run()
 ```
 
-如果你想获得更多信息，可以查阅 miraicle 的 [文档](https://excaive.github.io/miraicle/)。
+如果你想获得更多信息，可以查阅 `miraicle` 的 [文档](https://excaive.github.io/miraicle/)。
