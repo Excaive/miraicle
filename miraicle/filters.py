@@ -3,7 +3,7 @@ import os
 import threading
 
 from .message import *
-from .display import end_log
+from .utils import end_log
 from .mirai import Mirai
 from .asyncmirai import AsyncMirai
 

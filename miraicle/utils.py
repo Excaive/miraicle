@@ -1,3 +1,6 @@
+import warnings
+
+
 def start_log(func):
     def wrapper(*args, **kwargs):
         try:
@@ -35,3 +38,14 @@ def color(string, to_color):
                        'white': 37}
     color_code = color_code_dict.get(to_color, 30)
     return f'\033[0;{color_code}m{string}\033[0m'
+
+
+class Singleton(type):
+    __instances = {}
+
+    def __call__(cls, *args, **kwargs):
+        if cls not in cls.__instances:
+            cls.__instances[cls] = super(Singleton, cls).__call__(*args, **kwargs)
+        else:
+            warnings.warn(f'不能为类 {cls.__name__} 创建两个实例')
+        return cls.__instances[cls]

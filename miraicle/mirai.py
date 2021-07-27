@@ -6,12 +6,12 @@ import warnings
 from io import BytesIO
 from typing import Dict
 
+from .utils import *
 from .message import *
-from .display import start_log, end_log, color
 from .schedule import Scheduler
 
 
-class Mirai:
+class Mirai(metaclass=Singleton):
     receiver_funcs = {}
     filter_funcs = {}
     __filters = []

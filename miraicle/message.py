@@ -3,7 +3,7 @@ import random
 from typing import Optional, Union, List
 from abc import ABC, abstractmethod
 
-from .display import color
+from .utils import color
 
 
 class Element(ABC):

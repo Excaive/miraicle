@@ -5,12 +5,12 @@ import threading
 from io import BytesIO
 from typing import Dict
 
+from .utils import *
 from .message import *
-from .display import start_log, end_log, color
 from .schedule import Scheduler
 
 
-class AsyncMirai:
+class AsyncMirai(metaclass=Singleton):
     receiver_funcs = {}
     filter_funcs = {}
     __filters = []
