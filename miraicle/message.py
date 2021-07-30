@@ -1,5 +1,6 @@
 import time
 import random
+import base64 as b64
 from typing import Optional, Union, List
 from abc import ABC, abstractmethod
 
@@ -22,6 +23,13 @@ class Element(ABC):
     def subclasses_str(cls):
         """返回所有子类名字符串的列表"""
         return [c.__name__ for c in cls.__subclasses__()]
+
+    @classmethod
+    def _handle_base64(cls, base64: Optional[Union[bytes, str]]) -> Optional[bytes]:
+        if isinstance(base64, str):
+            return b64.b64encode(open(base64, 'rb').read())
+        else:
+            return base64
 
 
 class Plain(Element):
@@ -135,13 +143,17 @@ class Face(Element):
 
 
 class Image(Element):
-    def __init__(self, path: str = None, url: str = None, image_id: str = None):
+    def __init__(self, path: str = None, url: str = None, image_id: str = None,
+                 base64: Optional[Union[bytes, str]] = None):
         self.path = path
         self.url = url
         self.image_id = image_id
+        self.base64 = Element._handle_base64(base64)
 
     def __repr__(self):
-        if not self.url:
+        if not self.image_id:
+            return '[Image]'
+        elif not self.url:
             return f'[Image:{self.image_id}]'
         else:
             return f'[Image:{self.image_id} | {self.url}]'
@@ -159,6 +171,8 @@ class Image(Element):
             return {'type': 'Image', 'url': self.url}
         elif self.image_id:
             return {'type': 'Image', 'imageId': self.image_id}
+        elif self.base64:
+            return {'type': 'Image', 'base64': self.base64.decode('utf-8')}
 
     @property
     def is_flash(self) -> bool:
@@ -189,18 +203,26 @@ class Image(Element):
     def from_id(image_id: str) -> 'Image':
         return Image(image_id=image_id)
 
+    @staticmethod
+    def from_base64(base64) -> 'Image':
+        return Image(base64=Element._handle_base64(base64))
+
 
 class FlashImage(Element):
-    def __init__(self, path: str = None, url: str = None, image_id: str = None):
+    def __init__(self, path: str = None, url: str = None, image_id: str = None,
+                 base64: Optional[Union[bytes, str]] = None):
         self.path = path
         self.url = url
         self.image_id = image_id
+        self.base64 = Element._handle_base64(base64)
 
     def __repr__(self):
-        if not self.url:
-            return f'[Image:{self.image_id}]'
+        if not self.image_id:
+            return '[FlashImage]'
+        elif not self.url:
+            return f'[FlashImage:{self.image_id}]'
         else:
-            return f'[Image:{self.image_id} | {self.url}]'
+            return f'[FlashImage:{self.image_id} | {self.url}]'
 
     def __eq__(self, other):
         if isinstance(other, FlashImage):
@@ -215,6 +237,8 @@ class FlashImage(Element):
             return {'type': 'FlashImage', 'url': self.url}
         elif self.image_id:
             return {'type': 'FlashImage', 'imageId': self.image_id}
+        elif self.base64:
+            return {'type': 'FlashImage', 'base64': self.base64.decode('utf-8')}
 
     @property
     def is_flash(self) -> bool:
@@ -245,15 +269,23 @@ class FlashImage(Element):
     def from_id(image_id: str) -> 'FlashImage':
         return FlashImage(image_id=image_id)
 
+    @staticmethod
+    def from_base64(base64) -> 'FlashImage':
+        return FlashImage(base64=Element._handle_base64(base64))
+
 
 class Voice(Element):
-    def __init__(self, path: str = None, url: str = None, voice_id: str = None):
+    def __init__(self, path: str = None, url: str = None, voice_id: str = None,
+                 base64: Optional[Union[bytes, str]] = None):
         self.path = path
         self.url = url
         self.voice_id = voice_id
+        self.base64 = Element._handle_base64(base64)
 
     def __repr__(self):
-        if not self.url:
+        if not self.voice_id:
+            return '[Voice]'
+        elif not self.url:
             return f'[Voice:{self.voice_id}]'
         else:
             return f'[Voice:{self.voice_id} | {self.url}]'
@@ -271,6 +303,8 @@ class Voice(Element):
             return {'type': 'Voice', 'url': self.url}
         elif self.voice_id:
             return {'type': 'Voice', 'voiceId': self.voice_id}
+        elif self.base64:
+            return {'type': 'Voice', 'base64': self.base64.decode('utf-8')}
 
     @staticmethod
     def from_json(json: dict) -> 'Voice':
@@ -290,6 +324,10 @@ class Voice(Element):
     @staticmethod
     def from_id(voice_id: str) -> 'Voice':
         return Voice(voice_id=voice_id)
+
+    @staticmethod
+    def from_base64(base64) -> 'Voice':
+        return Voice(base64=Element._handle_base64(base64))
 
 
 class Xml(Element):
@@ -428,11 +466,26 @@ class File(Element):
         return File(file_id=file_id, name=name, size=size)
 
 
+class BotMessage:
+    """bot 发出的消息"""
+
+    def __init__(self, msg_chain: List):
+        self.chain = msg_chain
+        self.text = ''
+        for ele in self.chain:
+            if ele['type'] in Element.subclasses_str():
+                self.text += eval(ele['type']).from_json(ele).__repr__()
+
+    def __repr__(self):
+        return f"{time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())} BotMessage {self.text.__repr__()}"
+
+
 class Message:
     """消息基类"""
 
-    def __init__(self, msg: dict):
+    def __init__(self, msg: dict, bot_qq: int):
         self.json = msg
+        self._bot_qq = bot_qq
         msg_chain = msg.get('messageChain', None)
         try:
             self.id = msg_chain[0].get('id', None)
@@ -495,12 +548,16 @@ class Message:
                 return ele
         return None
 
+    def at_me(self) -> bool:
+        """返回这条消息中是否 at 了 bot"""
+        return any([ele == At(self._bot_qq) for ele in self.chain])
+
 
 class GroupMessage(Message):
     """群消息"""
 
-    def __init__(self, msg: dict):
-        super().__init__(msg)
+    def __init__(self, msg: dict, bot_qq: int):
+        super().__init__(msg, bot_qq)
         sender = msg.get('sender', {})
         self.sender = sender.get('id', None)
         self.sender_name = sender.get('memberName', None)
@@ -516,8 +573,8 @@ class GroupMessage(Message):
 class FriendMessage(Message):
     """好友消息"""
 
-    def __init__(self, msg: dict):
-        super().__init__(msg)
+    def __init__(self, msg: dict, bot_qq: int):
+        super().__init__(msg, bot_qq)
         sender = msg.get('sender', {})
         self.sender = sender.get('id', None)
         self.sender_name = sender.get('nickname', None)
@@ -530,8 +587,8 @@ class FriendMessage(Message):
 class TempMessage(Message):
     """群临时消息"""
 
-    def __init__(self, msg: dict):
-        super().__init__(msg)
+    def __init__(self, msg: dict, bot_qq: int):
+        super().__init__(msg, bot_qq)
         sender = msg.get('sender', {})
         self.sender = sender.get('id', None)
         self.sender_name = sender.get('memberName', None)

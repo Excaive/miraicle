@@ -201,10 +201,10 @@ class Mirai(metaclass=Singleton):
             self.__scheduler.run(self)
             time.sleep(0.5)
 
-
-    @staticmethod
-    def __handle_msg_origin(msg_origin, msg_type):
-        if msg_type in ['GroupMessage', 'FriendMessage', 'TempMessage', 'GroupRecallEvent', 'MemberCardChangeEvent']:
+    def __handle_msg_origin(self, msg_origin, msg_type):
+        if msg_type in ['GroupMessage', 'FriendMessage', 'TempMessage']:
+            msg = eval(msg_type)(msg_origin, self.qq)
+        elif msg_type in ['GroupRecallEvent', 'MemberCardChangeEvent']:
             msg = eval(msg_type)(msg_origin)
         elif msg_type in ['BotOnlineEvent', 'BotReloginEvent']:
             msg = BotOnlineEvent(msg_origin)
@@ -220,9 +220,12 @@ class Mirai(metaclass=Singleton):
         :param msg: 发送的消息
         :return: mirai-api-http 的响应
         """
+        msg_chain = self.__handle_friend_msg_chain(msg)
+        bot_msg = BotMessage(msg_chain)
+        print(color(bot_msg, 'blue'))
         content = {'sessionKey': self.session_key,
                    'qq': qq,
-                   'messageChain': self.__handle_friend_msg_chain(msg)}
+                   'messageChain': msg_chain}
         if self.adapter == 'http':
             response = self.__session.post(url=f'{self.base_url}/sendFriendMessage', json=content).json()
             return response
@@ -237,10 +240,13 @@ class Mirai(metaclass=Singleton):
         :param msg: 发送的消息
         :return: mirai-api-http 的响应
         """
+        msg_chain = self.__handle_friend_msg_chain(msg)
+        bot_msg = BotMessage(msg_chain)
+        print(color(bot_msg, 'blue'))
         content = {'sessionKey': self.session_key,
                    'qq': qq,
                    'group': group,
-                   'messageChain': self.__handle_friend_msg_chain(msg)}
+                   'messageChain': msg_chain}
         if self.adapter == 'http':
             response = self.__session.post(url=f'{self.base_url}/sendTempMessage', json=content).json()
             return response
@@ -261,7 +267,6 @@ class Mirai(metaclass=Singleton):
             msg_chain.append(Plain(msg).to_json())
         elif isinstance(msg, Element):
             msg_chain.append(msg.to_json())
-        print(color(msg_chain, 'blue'))
         return msg_chain
 
     def send_group_msg(self, group: int, msg, quote: Optional[int] = None):
@@ -271,9 +276,12 @@ class Mirai(metaclass=Singleton):
         :param quote: 引用一条消息的messageId进行回复
         :return: mirai-api-http 的响应
         """
+        msg_chain = self.__handle_group_msg_chain(msg)
+        bot_msg = BotMessage(msg_chain)
+        print(color(bot_msg, 'blue'))
         content = {'sessionKey': self.session_key,
                    'group': group,
-                   'messageChain': self.__handle_group_msg_chain(msg)}
+                   'messageChain': msg_chain}
         if quote:
             content['quote'] = quote
 
@@ -302,7 +310,6 @@ class Mirai(metaclass=Singleton):
             msg_chain.append(Plain(msg).to_json())
         elif isinstance(msg, Element):
             msg_chain.append(msg.to_json())
-        print(color(msg_chain, 'blue'))
         return msg_chain
 
     def get_friend_list(self):
@@ -348,6 +355,18 @@ class Mirai(metaclass=Singleton):
             return response
         elif self.adapter == 'ws':
             response = self.__ws_send(command='memberList', content=content)
+            return response
+
+    def session_info(self):
+        """获取 session 信息
+        :return session 信息
+        """
+        content = {'sessionKey': self.session_key}
+        if self.adapter == 'http':
+            response = self.__session.get(url=f'{self.base_url}/sessionInfo', params=content).json()
+            return response
+        elif self.adapter == 'ws':
+            response = self.__ws_send(command='sessionInfo', content=content)
             return response
 
     def bot_profile(self):
