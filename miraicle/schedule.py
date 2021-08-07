@@ -26,13 +26,15 @@ class Scheduler:
     def run(self, bot):
         for job in self.jobs:
             if job.time_up():
-                job.execute(bot)
+                if job.time_unexpired():
+                    job.execute(bot)
                 job.update_time()
 
     async def async_run(self, bot):
         for job in self.jobs:
             if job.time_up():
-                await job.async_execute(bot)
+                if job.time_unexpired():
+                    await job.async_execute(bot)
                 job.update_time()
 
 
@@ -44,14 +46,17 @@ class Job:
         self.at_time: Optional[datetime.time] = None
 
         self.func = None
-        self.last_run = None
-        self.next_run = None
+        self.last_run: Optional[datetime.datetime] = None
+        self.next_run: Optional[datetime.datetime] = None
 
     def __repr__(self):
         return f'<Job:{self.func} | {self.interval} {self.unit} | last {self.last_run} | next {self.next_run}>'
 
     def time_up(self):
         return self.next_run < datetime.datetime.now()
+
+    def time_unexpired(self):
+        return datetime.datetime.now() < self.next_run + datetime.timedelta(minutes=1)
 
     def execute(self, bot):
         self.func(bot)
@@ -208,7 +213,8 @@ class Job:
 
     def update_time(self):
         self.last_run = self.next_run
-        self.next_run = self.__calculate_next(self.last_run)
+        while self.next_run < datetime.datetime.now():
+            self.next_run = self.__calculate_next(self.last_run)
 
     def __calculate_next(self, time):
         return time + datetime.timedelta(**{self.unit: self.interval})
