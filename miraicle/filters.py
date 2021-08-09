@@ -79,10 +79,9 @@ class GroupSwitchFilter(BaseFilter):
     def enable(self, group, func_name):
         """在群组 group 启用名为 func_name 的组件"""
         if func_name in self.__func_names:
-            self.__lock.acquire()
-            self.config[str(group)].append(func_name)
-            self._save_config()
-            self.__lock.release()
+            with self.__lock:
+                self.config[str(group)].append(func_name)
+                self._save_config()
             return True
         else:
             return False
@@ -90,29 +89,26 @@ class GroupSwitchFilter(BaseFilter):
     def disable(self, group, func_name):
         """在群组 group 禁用名为 func_name 的组件"""
         if func_name in self.__func_names:
-            self.__lock.acquire()
-            if func_name in self.config[str(group)]:
-                self.config[str(group)].remove(func_name)
-            self._save_config()
-            self.__lock.release()
+            with self.__lock:
+                if func_name in self.config[str(group)]:
+                    self.config[str(group)].remove(func_name)
+                self._save_config()
             return True
         else:
             return False
 
     def enable_all(self, group):
         """在群组 group 启用所有组件"""
-        self.__lock.acquire()
-        self.config[str(group)] = self.__func_names
-        self._save_config()
-        self.__lock.release()
+        with self.__lock:
+            self.config[str(group)] = self.__func_names
+            self._save_config()
         return True
 
     def disable_all(self, group):
         """在群组 group 禁用所有组件"""
-        self.__lock.acquire()
-        self.config[str(group)].clear()
-        self._save_config()
-        self.__lock.release()
+        with self.__lock:
+            self.config[str(group)].clear()
+            self._save_config()
         return True
 
     def funcs_info(self, group=None):
@@ -147,10 +143,9 @@ class BlacklistFilter(BaseFilter):
     def append(self, qq):
         """向黑名单中添加成员"""
         if qq not in self.config['blacklist']:
-            self.__lock.acquire()
-            self.config['blacklist'].append(str(qq))
-            self._save_config()
-            self.__lock.release()
+            with self.__lock:
+                self.config['blacklist'].append(str(qq))
+                self._save_config()
             return True
         else:
             return False
@@ -158,20 +153,18 @@ class BlacklistFilter(BaseFilter):
     def remove(self, qq):
         """从黑名单中移除成员"""
         if str(qq) in self.config['blacklist']:
-            self.__lock.acquire()
-            self.config['blacklist'].remove(str(qq))
-            self._save_config()
-            self.__lock.release()
+            with self.__lock:
+                self.config['blacklist'].remove(str(qq))
+                self._save_config()
             return True
         else:
             return False
 
     def clear(self):
         """清空黑名单"""
-        self.__lock.acquire()
-        self.config['blacklist'].clear()
-        self._save_config()
-        self.__lock.release()
+        with self.__lock:
+            self.config['blacklist'].clear()
+            self._save_config()
         return True
 
     def show(self):

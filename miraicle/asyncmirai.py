@@ -34,6 +34,7 @@ class AsyncMirai(metaclass=Singleton):
         self.session_key: Optional[str] = session_key
         self.adapter: str = adapter
 
+        self.__loop: Optional[asyncio.AbstractEventLoop] = None
         self.__session: Optional[Union[aiohttp.ClientSession, aiohttp.ClientWebSocketResponse]] = None
         self.__msg_pool: Dict[str, json] = {}
         self.__scheduler: Scheduler = Scheduler()
@@ -48,11 +49,11 @@ class AsyncMirai(metaclass=Singleton):
     def run(self):
         """开始运行"""
         if self.adapter == 'http':
-            loop = asyncio.get_event_loop()
-            loop.run_until_complete(self.__http_run())
+            self.__loop = asyncio.get_event_loop()
+            self.__loop.run_until_complete(self.__http_run())
         elif self.adapter == 'ws':
-            loop = asyncio.get_event_loop()
-            loop.run_until_complete(self.__ws_run())
+            self.__loop = asyncio.get_event_loop()
+            self.__loop.run_until_complete(self.__ws_run())
 
     async def __http_run(self):
         """使用 http adapter 运行"""
@@ -133,10 +134,12 @@ class AsyncMirai(metaclass=Singleton):
                         'command': command,
                         'subCommand': None,
                         'content': content}))
-        for _ in range(25):
-            if sync_id in self.__msg_pool:
-                return self.__msg_pool.pop(sync_id)
-            await asyncio.sleep(0.2)
+        future = self.__loop.create_future()
+        self.__msg_pool[sync_id] = future
+        result = await future
+        print(color(f'result: {result}', 'violet'))
+        return result
+
 
     @start_log
     async def __http_main_loop(self):
@@ -181,11 +184,15 @@ class AsyncMirai(metaclass=Singleton):
                     print(msg)
                     funcs = self.receiver_funcs.get(msg_type, [])
                     if funcs:
-                        msg_thread = threading.Thread(target=self.__ws_call_plugins, args=(funcs, msg))
-                        msg_thread.start()
+                        await self.__ws_call_plugins(funcs, msg)
                 else:
                     response = msg_json['data']
-                    self.__msg_pool[msg_json['syncId']] = response
+                    sync_id = msg_json['syncId']
+                    if sync_id in self.__msg_pool:
+                        future: asyncio.Future = self.__msg_pool.pop(sync_id)
+                        future.set_result(response)
+                    else:
+                        print(color('Exception: 没有找到对应的 sync_id', 'violet'))
             except:
                 pass
 
@@ -197,13 +204,14 @@ class AsyncMirai(metaclass=Singleton):
         for task in tasks:
             await task
 
-    def __ws_call_plugins(self, funcs, msg):
+    async def __ws_call_plugins(self, funcs, msg):
         for flt in self.__filters:
             funcs = flt.sift(funcs, self, msg)
-        loop = asyncio.new_event_loop()
-        loop.run_until_complete(
-            asyncio.wait([flt.async_call(self, msg) for flt in self.__filters] +
-                         [func(self, msg) for func in funcs]))
+
+        tasks = [flt.async_call(self, msg) for flt in self.__filters] + \
+                [func(self, msg) for func in funcs]
+        for task in tasks:
+            self.__loop.create_task(task)
 
     def __call_schedule_plugins(self):
         loop = asyncio.new_event_loop()
