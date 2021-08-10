@@ -469,15 +469,19 @@ class File(Element):
 class BotMessage:
     """bot 发出的消息"""
 
-    def __init__(self, msg_chain: List):
+    def __init__(self, msg_chain: List, msg_type: str = None, msg_id: int = None, target: int = None):
         self.chain = msg_chain
+        self.msg_type = msg_type
+        self.id = msg_id
         self.text = ''
+        self.target = target
         for ele in self.chain:
             if ele['type'] in Element.subclasses_str():
                 self.text += eval(ele['type']).from_json(ele).__repr__()
 
     def __repr__(self):
-        return f"{time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())} BotMessage {self.text.__repr__()}"
+        return f"{time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())} {self.msg_type} #{self.id} - " \
+               f"{self.target} <- {self.text.__repr__()}"
 
 
 class Message:

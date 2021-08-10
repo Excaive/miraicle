@@ -139,7 +139,6 @@ class AsyncMirai(metaclass=Singleton):
         print(color(f'result: {result}', 'violet'))
         return result
 
-
     @start_log
     async def __http_main_loop(self):
         """http 主循环"""
@@ -204,6 +203,7 @@ class AsyncMirai(metaclass=Singleton):
 
     async def __call_schedule_plugins(self):
         while True:
+            await asyncio.sleep(0.5)
             await self.__scheduler.async_run(self)
 
     def __handle_msg_origin(self, msg_origin, msg_type):
@@ -226,18 +226,19 @@ class AsyncMirai(metaclass=Singleton):
         :return: mirai-api-http 的响应
         """
         msg_chain = self.__handle_friend_msg_chain(msg)
-        bot_msg = BotMessage(msg_chain)
-        print(color(bot_msg, 'blue'))
         content = {'sessionKey': self.session_key,
                    'qq': qq,
                    'messageChain': msg_chain}
         if self.adapter == 'http':
             async with self.__session.post(url=f'{self.base_url}/sendFriendMessage', json=content) as r:
                 response = await r.json()
-            return response
-        elif self.adapter == 'ws':
+        else:
+            assert self.adapter == 'ws'
             response = await self.__ws_send(command='sendFriendMessage', content=content)
-            return response
+        msg_id = response.get('messageId', 0)
+        bot_msg = BotMessage(msg_chain, 'FriendMessage', msg_id, qq)
+        print(color(bot_msg, 'blue'))
+        return response
 
     async def send_temp_msg(self, group: int, qq: int, msg):
         """发送临时会话消息
@@ -247,8 +248,6 @@ class AsyncMirai(metaclass=Singleton):
         :return: mirai-api-http 的响应
         """
         msg_chain = self.__handle_friend_msg_chain(msg)
-        bot_msg = BotMessage(msg_chain)
-        print(color(bot_msg, 'blue'))
         content = {'sessionKey': self.session_key,
                    'qq': qq,
                    'group': group,
@@ -256,10 +255,13 @@ class AsyncMirai(metaclass=Singleton):
         if self.adapter == 'http':
             async with self.__session.post(url=f'{self.base_url}/sendTempMessage', json=content) as r:
                 response = await r.json()
-            return response
-        elif self.adapter == 'ws':
+        else:
+            assert self.adapter == 'ws'
             response = await self.__ws_send(command='sendTempMessage', content=content)
-            return response
+        msg_id = response.get('messageId', 0)
+        bot_msg = BotMessage(msg_chain, 'TempMessage', msg_id, group)
+        print(color(bot_msg, 'blue'))
+        return response
 
     @staticmethod
     def __handle_friend_msg_chain(msg):
@@ -284,8 +286,6 @@ class AsyncMirai(metaclass=Singleton):
         :return: mirai-api-http 的响应
         """
         msg_chain = self.__handle_group_msg_chain(msg)
-        bot_msg = BotMessage(msg_chain)
-        print(color(bot_msg, 'blue'))
         content = {'sessionKey': self.session_key,
                    'group': group,
                    'messageChain': msg_chain}
@@ -295,10 +295,13 @@ class AsyncMirai(metaclass=Singleton):
         if self.adapter == 'http':
             async with self.__session.post(url=f'{self.base_url}/sendGroupMessage', json=content) as r:
                 response = await r.json()
-            return response
-        elif self.adapter == 'ws':
+        else:
+            assert self.adapter == 'ws'
             response = await self.__ws_send(command='sendGroupMessage', content=content)
-            return response
+        msg_id = response.get('messageId', 0)
+        bot_msg = BotMessage(msg_chain, 'GroupMessage', msg_id, group)
+        print(color(bot_msg, 'blue'))
+        return response
 
     @staticmethod
     def __handle_group_msg_chain(msg):

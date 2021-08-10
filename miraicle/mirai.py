@@ -128,7 +128,10 @@ class Mirai(metaclass=Singleton):
 
     def __ws_send(self, command: str, content: json):
         """websocket 发送数据"""
-        sync_id = str(random.randint(0, 100_000_000))
+        while True:
+            sync_id = str(random.randint(0, 100_000_000))
+            if sync_id not in self.__msg_pool:
+                break
         self.__session.send(
             json.dumps({'syncId': sync_id,
                         'command': command,
@@ -227,17 +230,18 @@ class Mirai(metaclass=Singleton):
         :return: mirai-api-http 的响应
         """
         msg_chain = self.__handle_friend_msg_chain(msg)
-        bot_msg = BotMessage(msg_chain)
-        print(color(bot_msg, 'blue'))
         content = {'sessionKey': self.session_key,
                    'qq': qq,
                    'messageChain': msg_chain}
         if self.adapter == 'http':
             response = self.__session.post(url=f'{self.base_url}/sendFriendMessage', json=content).json()
-            return response
-        elif self.adapter == 'ws':
+        else:
+            assert self.adapter == 'ws'
             response = self.__ws_send(command='sendFriendMessage', content=content)
-            return response
+        msg_id = response.get('messageId', 0)
+        bot_msg = BotMessage(msg_chain, 'FriendMessage', msg_id, qq)
+        print(color(bot_msg, 'blue'))
+        return response
 
     def send_temp_msg(self, group: int, qq: int, msg):
         """发送临时会话消息
@@ -247,18 +251,19 @@ class Mirai(metaclass=Singleton):
         :return: mirai-api-http 的响应
         """
         msg_chain = self.__handle_friend_msg_chain(msg)
-        bot_msg = BotMessage(msg_chain)
-        print(color(bot_msg, 'blue'))
         content = {'sessionKey': self.session_key,
                    'qq': qq,
                    'group': group,
                    'messageChain': msg_chain}
         if self.adapter == 'http':
             response = self.__session.post(url=f'{self.base_url}/sendTempMessage', json=content).json()
-            return response
-        elif self.adapter == 'ws':
+        else:
+            assert self.adapter == 'ws'
             response = self.__ws_send(command='sendTempMessage', content=content)
-            return response
+        msg_id = response.get('messageId', 0)
+        bot_msg = BotMessage(msg_chain, 'TempMessage', msg_id, group)
+        print(color(bot_msg, 'blue'))
+        return response
 
     @staticmethod
     def __handle_friend_msg_chain(msg):
@@ -283,8 +288,6 @@ class Mirai(metaclass=Singleton):
         :return: mirai-api-http 的响应
         """
         msg_chain = self.__handle_group_msg_chain(msg)
-        bot_msg = BotMessage(msg_chain)
-        print(color(bot_msg, 'blue'))
         content = {'sessionKey': self.session_key,
                    'group': group,
                    'messageChain': msg_chain}
@@ -293,10 +296,13 @@ class Mirai(metaclass=Singleton):
 
         if self.adapter == 'http':
             response = self.__session.post(url=f'{self.base_url}/sendGroupMessage', json=content).json()
-            return response
-        elif self.adapter == 'ws':
+        else:
+            assert self.adapter == 'ws'
             response = self.__ws_send(command='sendGroupMessage', content=content)
-            return response
+        msg_id = response.get('messageId', 0)
+        bot_msg = BotMessage(msg_chain, 'GroupMessage', msg_id, group)
+        print(color(bot_msg, 'blue'))
+        return response
 
     @staticmethod
     def __handle_group_msg_chain(msg):
