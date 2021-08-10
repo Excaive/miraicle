@@ -1,7 +1,6 @@
 import aiohttp
 import asyncio
 import json
-import threading
 from io import BytesIO
 from typing import Dict
 
@@ -156,7 +155,7 @@ class AsyncMirai(metaclass=Singleton):
                     print(msg)
                     funcs = self.receiver_funcs.get(msg_type, [])
                     if funcs:
-                        await self.__http_call_plugins(funcs, msg)
+                        await self.__call_plugins(funcs, msg)
             except:
                 continue
 
@@ -171,8 +170,7 @@ class AsyncMirai(metaclass=Singleton):
     @start_log
     async def __ws_main_loop(self):
         """ws 主循环"""
-        schedule_thread = threading.Thread(target=self.__call_schedule_plugins)
-        schedule_thread.start()
+        self.__loop.create_task(self.__call_schedule_plugins())
         while True:
             response = await self.__session.receive()
             try:
@@ -184,7 +182,7 @@ class AsyncMirai(metaclass=Singleton):
                     print(msg)
                     funcs = self.receiver_funcs.get(msg_type, [])
                     if funcs:
-                        await self.__ws_call_plugins(funcs, msg)
+                        await self.__call_plugins(funcs, msg)
                 else:
                     response = msg_json['data']
                     sync_id = msg_json['syncId']
@@ -196,28 +194,17 @@ class AsyncMirai(metaclass=Singleton):
             except:
                 pass
 
-    async def __http_call_plugins(self, funcs, msg):
+    async def __call_plugins(self, funcs, msg):
         for flt in self.__filters:
             funcs = flt.sift(funcs, self, msg)
-        tasks = [asyncio.ensure_future(flt.async_call(self, msg)) for flt in self.__filters] + \
-                [asyncio.ensure_future(func(self, msg)) for func in funcs]
-        for task in tasks:
-            await task
-
-    async def __ws_call_plugins(self, funcs, msg):
-        for flt in self.__filters:
-            funcs = flt.sift(funcs, self, msg)
-
         tasks = [flt.async_call(self, msg) for flt in self.__filters] + \
                 [func(self, msg) for func in funcs]
         for task in tasks:
             self.__loop.create_task(task)
 
-    def __call_schedule_plugins(self):
-        loop = asyncio.new_event_loop()
+    async def __call_schedule_plugins(self):
         while True:
-            loop.run_until_complete(self.__scheduler.async_run(self))
-            time.sleep(0.5)
+            await self.__scheduler.async_run(self)
 
     def __handle_msg_origin(self, msg_origin, msg_type):
         if msg_type in ['GroupMessage', 'FriendMessage', 'TempMessage']:

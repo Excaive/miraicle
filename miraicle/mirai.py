@@ -2,7 +2,7 @@ import requests
 import websocket
 import json
 import threading
-import warnings
+import concurrent.futures
 from io import BytesIO
 from typing import Dict
 
@@ -134,10 +134,11 @@ class Mirai(metaclass=Singleton):
                         'command': command,
                         'subCommand': None,
                         'content': content}))
-        for _ in range(100):
-            if sync_id in self.__msg_pool:
-                return self.__msg_pool.pop(sync_id)
-            time.sleep(0.2)
+        future = concurrent.futures.Future()
+        self.__msg_pool[sync_id] = future
+        result = future.result()
+        print(color(f'result: {result}', 'violet'))
+        return result
 
     @start_log
     def __http_main_loop(self):
@@ -185,7 +186,12 @@ class Mirai(metaclass=Singleton):
                         msg_thread.start()
                 else:
                     response = msg_json['data']
-                    self.__msg_pool[msg_json['syncId']] = response
+                    sync_id = msg_json['syncId']
+                    if sync_id in self.__msg_pool:
+                        future: concurrent.futures.Future = self.__msg_pool.pop(sync_id)
+                        future.set_result(response)
+                    else:
+                        print(color('Exception: 没有找到对应的 sync_id', 'violet'))
             except:
                 pass
 
