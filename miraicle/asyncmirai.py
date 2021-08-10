@@ -136,7 +136,6 @@ class AsyncMirai(metaclass=Singleton):
         future = self.__loop.create_future()
         self.__msg_pool[sync_id] = future
         result = await future
-        print(color(f'result: {result}', 'violet'))
         return result
 
     @start_log
@@ -567,15 +566,18 @@ class AsyncMirai(metaclass=Singleton):
             response = await self.__ws_send(command='unmuteAll', content=content)
             return response
 
-    async def file_list(self, dir_id: Optional[str] = None, group: Optional[int] = None, qq: Optional[int] = None):
+    async def file_list(self, dir_id: Optional[str] = None, group: Optional[int] = None,
+                        qq: Optional[int] = None, with_download_info: bool = False):
         """获取文件列表，目前仅支持群文件的操作
         :param dir_id: 文件夹 id，空为根目录
         :param group：群号，可选
         :param qq：好友 QQ 号，可选
+        :param with_download_info：是否携带下载信息，额外请求，无必要不要携带
         :return: 文件列表
         """
         content = {'sessionKey': self.session_key,
-                   'id': dir_id if dir_id else ''}
+                   'id': dir_id if dir_id else '',
+                   'withDownloadInfo': with_download_info}
         if group:
             content['group'] = group
         if qq:
@@ -588,14 +590,17 @@ class AsyncMirai(metaclass=Singleton):
             response = await self.__ws_send('file_list', content=content)
             return response
 
-    async def file_info(self, file: Union[File, str], group: Optional[int] = None, qq: Optional[int] = None):
+    async def file_info(self, file: Union[File, str], group: Optional[int] = None,
+                        qq: Optional[int] = None, with_download_info: bool = False):
         """获取文件信息
         :param file: 文件对象或文件唯一ID
         :param group：群号，可选
         :param qq：好友 QQ 号，可选
+        :param with_download_info：是否携带下载信息，额外请求，无必要不要携带
         :return: 文件信息
         """
-        content = {'sessionKey': self.session_key}
+        content = {'sessionKey': self.session_key,
+                   'withDownloadInfo': with_download_info}
         if isinstance(file, File):
             content['id'] = file.file_id
         else:

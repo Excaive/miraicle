@@ -140,7 +140,6 @@ class Mirai(metaclass=Singleton):
         future = concurrent.futures.Future()
         self.__msg_pool[sync_id] = future
         result = future.result()
-        print(color(f'result: {result}', 'violet'))
         return result
 
     @start_log
@@ -550,33 +549,18 @@ class Mirai(metaclass=Singleton):
             response = self.__ws_send(command='unmuteAll', content=content)
             return response
 
-    def group_file_list(self, group: int, dir=None):
-        """获取群文件列表，目前仅支持群文件的操作
-        :param group: 指定群的群号
-        :param dir: 指定查询目录，不填为根目录
-        :return: 群文件列表
-        """
-        warnings.warn('由于 mirai-api-http 接口变更，该函数已废弃，请使用 file_list', DeprecationWarning)
-        if dir:
-            response = self.__session.get(url=f'{self.base_url}/groupFileList',
-                                          params={'sessionKey': self.session_key,
-                                                  'target': group,
-                                                  'dir': dir}).json()
-        else:
-            response = self.__session.get(url=f'{self.base_url}/groupFileList',
-                                          params={'sessionKey': self.session_key,
-                                                  'target': group}).json()
-        return response
-
-    def file_list(self, dir_id: Optional[str] = None, group: Optional[int] = None, qq: Optional[int] = None):
+    def file_list(self, dir_id: Optional[str] = None, group: Optional[int] = None,
+                  qq: Optional[int] = None, with_download_info: bool = False):
         """获取文件列表，目前仅支持群文件的操作
         :param dir_id: 文件夹 id，空为根目录
         :param group：群号，可选
         :param qq：好友 QQ 号，可选
+        :param with_download_info：是否携带下载信息，额外请求，无必要不要携带
         :return: 文件列表
         """
         content = {'sessionKey': self.session_key,
-                   'id': dir_id if dir_id else ''}
+                   'id': dir_id if dir_id else '',
+                   'withDownloadInfo': with_download_info}
         if group:
             content['group'] = group
         if qq:
@@ -587,35 +571,18 @@ class Mirai(metaclass=Singleton):
         elif self.adapter == 'ws':
             response = self.__ws_send('file_list', content=content)
             return response
-
-    def group_file_info(self, group: int, file: Union[File, str]):
-        """获取群文件详细信息
-        :param group: 指定群的群号
-        :param file: 文件对象或文件唯一ID
-        :return: 文件详细信息
-        """
-        warnings.warn('由于 mirai-api-http 接口变更，该函数已废弃，请使用 file_info', DeprecationWarning)
-        if isinstance(file, File):
-            response = self.__session.get(url=f'{self.base_url}/groupFileInfo',
-                                          params={'sessionKey': self.session_key,
-                                                  'target': group,
-                                                  'id': file.file_id}).json()
-        else:
-            assert isinstance(file, str)
-            response = self.__session.get(url=f'{self.base_url}/groupFileInfo',
-                                          params={'sessionKey': self.session_key,
-                                                  'target': group,
-                                                  'id': file}).json()
-        return response
-
-    def file_info(self, file: Union[File, str], group: Optional[int] = None, qq: Optional[int] = None):
+    
+    def file_info(self, file: Union[File, str], group: Optional[int] = None,
+                  qq: Optional[int] = None, with_download_info: bool = False):
         """获取文件信息
         :param file: 文件对象或文件唯一ID
         :param group：群号，可选
         :param qq：好友 QQ 号，可选
+        :param with_download_info：是否携带下载信息，额外请求，无必要不要携带
         :return: 文件信息
         """
-        content = {'sessionKey': self.session_key}
+        content = {'sessionKey': self.session_key,
+                   'withDownloadInfo': with_download_info}
         if isinstance(file, File):
             content['id'] = file.file_id
         else:

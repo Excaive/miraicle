@@ -466,6 +466,28 @@ class File(Element):
         return File(file_id=file_id, name=name, size=size)
 
 
+class MiraiCode(Element):
+    def __init__(self, code: str):
+        self.code = code
+
+    def __repr__(self):
+        return f'[MiraiCode:{self.code}]'
+
+    def __eq__(self, other):
+        if isinstance(other, MiraiCode):
+            return self.code == other.code
+        else:
+            return False
+
+    def to_json(self):
+        return {'type': 'MiraiCode', 'code': self.code}
+
+    @staticmethod
+    def from_json(json: dict):
+        code = json.get('code', None)
+        return MiraiCode(code=code)
+
+
 class BotMessage:
     """bot 发出的消息"""
 
