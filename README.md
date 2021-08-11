@@ -4,6 +4,7 @@
 
 ![PyPI - Python Version](https://img.shields.io/pypi/pyversions/miraicle)
 ![PyPI](https://img.shields.io/pypi/v/miraicle?color=brightgreen)
+![mirai-api-http](https://img.shields.io/badge/mirai--api--http-%E2%89%A5v2.0.0-violet)
 ![PyPI - License](https://img.shields.io/pypi/l/miraicle?color=orange)
 
 一个基于 mirai-api-http 的轻量级 Python SDK
