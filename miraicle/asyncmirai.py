@@ -341,7 +341,7 @@ class AsyncMirai(metaclass=Singleton):
         content = {'sessionKey': self.session_key,
                    'target': id}
         if self.adapter == 'http':
-            async with self.__session.post(url=f'{self.base_url}/recall', params=content) as r:
+            async with self.__session.post(url=f'{self.base_url}/recall', json=content) as r:
                 response = await r.json()
             return response
         elif self.adapter == 'ws':

@@ -341,7 +341,7 @@ class Mirai(metaclass=Singleton):
         content = {'sessionKey': self.session_key,
                    'target': id}
         if self.adapter == 'http':
-            response = self.__session.post(url=f'{self.base_url}/recall', params=content).json()
+            response = self.__session.post(url=f'{self.base_url}/recall', json=content).json()
             return response
         elif self.adapter == 'ws':
             response = self.__ws_send(command='recall', content=content)
