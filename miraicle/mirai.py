@@ -283,7 +283,7 @@ class Mirai(metaclass=Singleton):
         """发送群消息
         :param group: 发送消息目标群的群号
         :param msg: 发送的消息
-        :param quote: 引用一条消息的messageId进行回复
+        :param quote: 引用一条消息的 messageId 进行回复
         :return: mirai-api-http 的响应
         """
         msg_chain = self.__handle_group_msg_chain(msg)
@@ -357,7 +357,7 @@ class Mirai(metaclass=Singleton):
             response = self.__ws_send(command='groupList', content=content)
             return response
 
-    def get_member_list(self, group):
+    def get_member_list(self, group: int):
         """获取群成员列表"""
         content = {'sessionKey': self.session_key,
                    'target': group}
@@ -392,7 +392,7 @@ class Mirai(metaclass=Singleton):
             response = self.__ws_send(command='botProfile', content=content)
             return response
 
-    def friend_profile(self, qq):
+    def friend_profile(self, qq: int):
         """获取好友资料
         :param qq: 好友 QQ 号
         :return 好友资料
@@ -465,14 +465,14 @@ class Mirai(metaclass=Singleton):
         """禁言群成员
         :param group: 指定群的群号
         :param qq: 指定群员 QQ 号
-        :param time: 禁言时长，单位为秒，最多30天
+        :param time: 禁言时长，单位为秒，最多 30 天
         """
         content = {'sessionKey': self.session_key,
                    'target': group,
                    'memberId': qq,
                    'time': time}
         if self.adapter == 'http':
-            response = self.__session.post(url=f'{self.base_url}/mute', params=content).json()
+            response = self.__session.post(url=f'{self.base_url}/mute', json=content).json()
             return response
         elif self.adapter == 'ws':
             response = self.__ws_send(command='mute', content=content)
@@ -487,7 +487,7 @@ class Mirai(metaclass=Singleton):
                    'target': group,
                    'memberId': qq}
         if self.adapter == 'http':
-            response = self.__session.post(url=f'{self.base_url}/unmute', params=content).json()
+            response = self.__session.post(url=f'{self.base_url}/unmute', json=content).json()
             return response
         elif self.adapter == 'ws':
             response = self.__ws_send(command='unmute', content=content)
@@ -504,7 +504,7 @@ class Mirai(metaclass=Singleton):
                    'memberId': qq,
                    'msg': msg}
         if self.adapter == 'http':
-            response = self.__session.post(url=f'{self.base_url}/kick', params=content).json()
+            response = self.__session.post(url=f'{self.base_url}/kick', json=content).json()
             return response
         elif self.adapter == 'ws':
             response = self.__ws_send(command='kick', content=content)
@@ -517,7 +517,7 @@ class Mirai(metaclass=Singleton):
         content = {'sessionKey': self.session_key,
                    'target': group}
         if self.adapter == 'http':
-            response = self.__session.post(url=f'{self.base_url}/quit', params=content).json()
+            response = self.__session.post(url=f'{self.base_url}/quit', json=content).json()
             return response
         elif self.adapter == 'ws':
             response = self.__ws_send(command='quit', content=content)
@@ -530,7 +530,7 @@ class Mirai(metaclass=Singleton):
         content = {'sessionKey': self.session_key,
                    'target': group}
         if self.adapter == 'http':
-            response = self.__session.post(url=f'{self.base_url}/muteAll', params=content).json()
+            response = self.__session.post(url=f'{self.base_url}/muteAll', json=content).json()
             return response
         elif self.adapter == 'ws':
             response = self.__ws_send(command='muteAll', content=content)
@@ -543,7 +543,7 @@ class Mirai(metaclass=Singleton):
         content = {'sessionKey': self.session_key,
                    'target': group}
         if self.adapter == 'http':
-            response = self.__session.post(url=f'{self.base_url}/unmuteAll', params=content).json()
+            response = self.__session.post(url=f'{self.base_url}/unmuteAll', json=content).json()
             return response
         elif self.adapter == 'ws':
             response = self.__ws_send(command='unmuteAll', content=content)
@@ -571,7 +571,7 @@ class Mirai(metaclass=Singleton):
         elif self.adapter == 'ws':
             response = self.__ws_send('file_list', content=content)
             return response
-    
+
     def file_info(self, file: Union[File, str], group: Optional[int] = None,
                   qq: Optional[int] = None, with_download_info: bool = False):
         """获取文件信息
@@ -602,8 +602,11 @@ class Mirai(metaclass=Singleton):
         """判断某成员在指定群内是否为群主
         :param qq: 指定群员 QQ 号
         :param group: 指定群的群号
+        :return: 成员在指定群内是否为群主
         """
-        member_list = self.get_member_list(group)
+        member_list = self.get_member_list(group)['data']
+        if qq == self.qq:
+            return member_list[0].get('group', {}).get('permission', None) == 'OWNER'
         for member in member_list:
             member_qq = member.get('id', None)
             member_permission = member.get('permission', None)
@@ -618,8 +621,11 @@ class Mirai(metaclass=Singleton):
         """判断某成员在指定群内是否为管理员
         :param qq: 指定群员 QQ 号
         :param group: 指定群的群号
+        :return: 成员在指定群内是否为管理员
         """
-        member_list = self.get_member_list(group)
+        member_list = self.get_member_list(group)['data']
+        if qq == self.qq:
+            return member_list[0].get('group', {}).get('permission', None) in ['OWNER', 'ADMINISTRATOR']
         for member in member_list:
             member_qq = member.get('id', None)
             member_permission = member.get('permission', None)
@@ -654,5 +660,6 @@ class Mirai(metaclass=Singleton):
 
     @end_log
     def set_filter(self, flt):
-        """设置过滤器"""
+        """设置过滤器
+        :param flt: 要设置的过滤器"""
         self.__filters.append(flt)

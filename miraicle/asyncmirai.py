@@ -482,7 +482,7 @@ class AsyncMirai(metaclass=Singleton):
                    'memberId': qq,
                    'time': time}
         if self.adapter == 'http':
-            async with self.__session.post(url=f'{self.base_url}/mute', params=content) as r:
+            async with self.__session.post(url=f'{self.base_url}/mute', json=content) as r:
                 response = await r.json()
             return response
         elif self.adapter == 'ws':
@@ -498,7 +498,7 @@ class AsyncMirai(metaclass=Singleton):
                    'target': group,
                    'memberId': qq}
         if self.adapter == 'http':
-            async with self.__session.post(url=f'{self.base_url}/unmute', params=content) as r:
+            async with self.__session.post(url=f'{self.base_url}/unmute', json=content) as r:
                 response = await r.json()
             return response
         elif self.adapter == 'ws':
@@ -516,7 +516,7 @@ class AsyncMirai(metaclass=Singleton):
                    'memberId': qq,
                    'msg': msg}
         if self.adapter == 'http':
-            async with self.__session.post(url=f'{self.base_url}/kick', params=content) as r:
+            async with self.__session.post(url=f'{self.base_url}/kick', json=content) as r:
                 response = await r.json()
             return response
         elif self.adapter == 'ws':
@@ -530,7 +530,7 @@ class AsyncMirai(metaclass=Singleton):
         content = {'sessionKey': self.session_key,
                    'target': group}
         if self.adapter == 'http':
-            async with self.__session.post(url=f'{self.base_url}/quit', params=content) as r:
+            async with self.__session.post(url=f'{self.base_url}/quit', json=content) as r:
                 response = await r.json()
             return response
         elif self.adapter == 'ws':
@@ -544,7 +544,7 @@ class AsyncMirai(metaclass=Singleton):
         content = {'sessionKey': self.session_key,
                    'target': group}
         if self.adapter == 'http':
-            async with self.__session.post(url=f'{self.base_url}/muteAll', params=content) as r:
+            async with self.__session.post(url=f'{self.base_url}/muteAll', json=content) as r:
                 response = await r.json()
             return response
         elif self.adapter == 'ws':
@@ -558,8 +558,7 @@ class AsyncMirai(metaclass=Singleton):
         content = {'sessionKey': self.session_key,
                    'target': group}
         if self.adapter == 'http':
-            async with self.__session.post(url=f'{self.base_url}/unmuteAll',
-                                           params=content) as r:
+            async with self.__session.post(url=f'{self.base_url}/unmuteAll', json=content) as r:
                 response = await r.json()
             return response
         elif self.adapter == 'ws':
@@ -621,8 +620,11 @@ class AsyncMirai(metaclass=Singleton):
         """判断某成员在指定群内是否为群主
         :param qq: 指定群员 QQ 号
         :param group: 指定群的群号
+        :return: 成员在指定群内是否为群主
         """
-        member_list = await self.get_member_list(group)
+        member_list = (await self.get_member_list(group))['data']
+        if qq == self.qq:
+            return member_list[0].get('group', {}).get('permission', None) == 'OWNER'
         for member in member_list:
             member_qq = member.get('id', None)
             member_permission = member.get('permission', None)
@@ -637,8 +639,11 @@ class AsyncMirai(metaclass=Singleton):
         """判断某成员在指定群内是否为管理员
         :param qq: 指定群员 QQ 号
         :param group: 指定群的群号
+        :return: 成员在指定群内是否为管理员
         """
-        member_list = await self.get_member_list(group)
+        member_list = (await self.get_member_list(group))['data']
+        if qq == self.qq:
+            return member_list[0].get('group', {}).get('permission', None) in ['OWNER', 'ADMINISTRATOR']
         for member in member_list:
             member_qq = member.get('id', None)
             member_permission = member.get('permission', None)
@@ -673,5 +678,6 @@ class AsyncMirai(metaclass=Singleton):
 
     @end_log
     def set_filter(self, flt):
-        """设置过滤器"""
+        """设置过滤器
+        :param flt: 要设置的过滤器"""
         self.__filters.append(flt)
