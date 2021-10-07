@@ -1,7 +1,6 @@
 import requests
 import websocket
 import json
-import threading
 import concurrent.futures
 from io import BytesIO
 from typing import Dict
@@ -9,6 +8,7 @@ from typing import Dict
 from .utils import *
 from .message import *
 from .schedule import Scheduler
+from .threadpool import ThreadPool
 
 
 class Mirai(metaclass=Singleton):
@@ -34,6 +34,7 @@ class Mirai(metaclass=Singleton):
         self.base_url: str = f'{adapter}://localhost:{port}'
         self.session_key: Optional[str] = session_key
         self.adapter: str = adapter
+        self.thread_pool: ThreadPool = ThreadPool()
 
         self.__session: Optional[Union[requests.session, websocket.WebSocket]] = None
         self.__msg_pool: Dict[str, json] = {}
@@ -157,8 +158,7 @@ class Mirai(metaclass=Singleton):
                     print(msg)
                     funcs = self.receiver_funcs.get(msg_type, [])
                     if funcs:
-                        msg_thread = threading.Thread(target=self.__call_plugins, args=(funcs, msg))
-                        msg_thread.start()
+                        self.thread_pool.add_task(target=self.__call_plugins, args=(funcs, msg))
             except:
                 continue
 
@@ -172,8 +172,7 @@ class Mirai(metaclass=Singleton):
     @start_log
     def __ws_main_loop(self):
         """ws 主循环"""
-        schedule_thread = threading.Thread(target=self.__call_schedule_plugins)
-        schedule_thread.start()
+        self.thread_pool.add_task(target=self.__call_schedule_plugins)
         while True:
             try:
                 msg_json = json.loads(self.__session.recv())
@@ -184,8 +183,7 @@ class Mirai(metaclass=Singleton):
                     print(msg)
                     funcs = self.receiver_funcs.get(msg_type, [])
                     if funcs:
-                        msg_thread = threading.Thread(target=self.__call_plugins, args=(funcs, msg))
-                        msg_thread.start()
+                        self.thread_pool.add_task(target=self.__call_plugins, args=(funcs, msg))
                 else:
                     response = msg_json['data']
                     sync_id = msg_json['syncId']

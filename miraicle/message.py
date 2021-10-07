@@ -276,11 +276,12 @@ class FlashImage(Element):
 
 class Voice(Element):
     def __init__(self, path: str = None, url: str = None, voice_id: str = None,
-                 base64: Optional[Union[bytes, str]] = None):
+                 base64: Optional[Union[bytes, str]] = None, length: int = 0):
         self.path = path
         self.url = url
         self.voice_id = voice_id
         self.base64 = Element._handle_base64(base64)
+        self.length = length
 
     def __repr__(self):
         if not self.voice_id:
@@ -311,7 +312,8 @@ class Voice(Element):
         path = json.get('path', None)
         url = json.get('url', None)
         voice_id = json.get('voiceId', None)
-        return Voice(path, url, voice_id)
+        length = json.get('length', 0)
+        return Voice(path, url, voice_id, length=length)
 
     @staticmethod
     def from_file(path: str) -> 'Voice':
@@ -557,14 +559,22 @@ class Message:
     def first_image(self) -> Optional[Union[Image, FlashImage]]:
         """返回消息链中的第一张图片"""
         for ele in self.chain:
-            if type(ele) in [Image, FlashImage]:
+            if isinstance(ele, (Image, FlashImage)):
                 return ele
         return None
 
     @property
     def images(self) -> List[Union[Image, FlashImage]]:
         """返回消息链中所有图片的列表"""
-        return [ele for ele in self.chain if type(ele) in [Image, FlashImage]]
+        return [ele for ele in self.chain if isinstance(ele, (Image, FlashImage))]
+
+    @property
+    def voice(self) -> Optional[Voice]:
+        """返回消息链中的语音"""
+        for ele in self.chain:
+            if isinstance(ele, Voice):
+                return ele
+        return None
 
     @property
     def file(self) -> Optional[File]:
