@@ -38,8 +38,15 @@ class AsyncMirai(metaclass=Singleton):
         self.__msg_pool: Dict[str, json] = {}
         self.__scheduler: Scheduler = Scheduler()
 
-    async def get_version(self):
+    async def version(self):
         """获取 mirai-api-http 的版本号"""
+        async with aiohttp.ClientSession().get(url=f'{self.base_url}/about') as r:
+            response = await r.json()
+        if 'data' in response and 'version' in response['data']:
+            return response['data']['version']
+
+    async def get_version(self):
+        warnings.warn('get_version 方法已弃用，请使用 version 代替', DeprecationWarning)
         async with aiohttp.ClientSession().get(url=f'{self.base_url}/about') as r:
             response = await r.json()
         if 'data' in response and 'version' in response['data']:
@@ -125,13 +132,13 @@ class AsyncMirai(metaclass=Singleton):
             response = await r.json()
         return response
 
-    async def __ws_send(self, command: str, content: json):
+    async def __ws_send(self, command: str, subcommand: str = None, content: json = None):
         """websocket 发送数据"""
         sync_id = str(random.randint(0, 100_000_000))
         await self.__session.send_str(
             json.dumps({'syncId': sync_id,
                         'command': command,
-                        'subCommand': None,
+                        'subCommand': subcommand,
                         'content': content}))
         future = self.__loop.create_future()
         self.__msg_pool[sync_id] = future
@@ -281,7 +288,7 @@ class AsyncMirai(metaclass=Singleton):
         """发送群消息
         :param group: 发送消息目标群的群号
         :param msg: 发送的消息
-        :param quote: 引用一条消息的messageId进行回复
+        :param quote: 引用一条消息的 messageId 进行回复
         :return: mirai-api-http 的响应
         """
         msg_chain = self.__handle_group_msg_chain(msg)
@@ -322,7 +329,22 @@ class AsyncMirai(metaclass=Singleton):
             msg_chain.append(msg.to_json())
         return msg_chain
 
-    async def get_friend_list(self):
+    async def recall(self, msg_id: int):
+        """撤回消息
+        :param msg_id: 需要撤回的消息的 messageId
+        :return: mirai-api-http 的响应
+        """
+        content = {'sessionKey': self.session_key,
+                   'target': msg_id}
+        if self.adapter == 'http':
+            async with self.__session.post(url=f'{self.base_url}/recall', json=content) as r:
+                response = await r.json()
+            return response
+        elif self.adapter == 'ws':
+            response = await self.__ws_send(command='recall', content=content)
+            return response
+
+    async def friend_list(self):
         """获取好友列表"""
         content = {'sessionKey': self.session_key}
         if self.adapter == 'http':
@@ -333,22 +355,18 @@ class AsyncMirai(metaclass=Singleton):
             response = await self.__ws_send(command='friendList', content=content)
             return response
 
-    async def recall(self, id: int):
-        """撤回消息
-        :param id: 需要撤回的消息的 messageId
-        :return: mirai-api-http 的响应
-        """
-        content = {'sessionKey': self.session_key,
-                   'target': id}
+    async def get_friend_list(self):
+        warnings.warn('get_friend_list 方法已弃用，请使用 friend_list 代替', DeprecationWarning)
+        content = {'sessionKey': self.session_key}
         if self.adapter == 'http':
-            async with self.__session.post(url=f'{self.base_url}/recall', json=content) as r:
+            async with self.__session.get(url=f'{self.base_url}/friendList', params=content) as r:
                 response = await r.json()
             return response
         elif self.adapter == 'ws':
-            response = await self.__ws_send(command='recall', content=content)
+            response = await self.__ws_send(command='friendList', content=content)
             return response
 
-    async def get_group_list(self):
+    async def group_list(self):
         """获取群列表"""
         content = {'sessionKey': self.session_key}
         if self.adapter == 'http':
@@ -359,7 +377,18 @@ class AsyncMirai(metaclass=Singleton):
             response = await self.__ws_send(command='groupList', content=content)
             return response
 
-    async def get_member_list(self, group):
+    async def get_group_list(self):
+        warnings.warn('get_group_list 方法已弃用，请使用 group_list 代替', DeprecationWarning)
+        content = {'sessionKey': self.session_key}
+        if self.adapter == 'http':
+            async with self.__session.get(url=f'{self.base_url}/groupList', params=content) as r:
+                response = await r.json()
+            return response
+        elif self.adapter == 'ws':
+            response = await self.__ws_send(command='groupList', content=content)
+            return response
+
+    async def member_list(self, group):
         """获取群成员列表"""
         content = {'sessionKey': self.session_key,
                    'target': group}
@@ -371,17 +400,16 @@ class AsyncMirai(metaclass=Singleton):
             response = await self.__ws_send(command='memberList', content=content)
             return response
 
-    async def session_info(self):
-        """获取 session 信息
-        :return session 信息
-        """
-        content = {'sessionKey': self.session_key}
+    async def get_member_list(self, group):
+        warnings.warn('get_member_list 方法已弃用，请使用 member_list 代替', DeprecationWarning)
+        content = {'sessionKey': self.session_key,
+                   'target': group}
         if self.adapter == 'http':
-            async with self.__session.get(url=f'{self.base_url}/sessionInfo', params=content) as r:
+            async with self.__session.get(url=f'{self.base_url}/memberList', params=content) as r:
                 response = await r.json()
             return response
         elif self.adapter == 'ws':
-            response = await self.__ws_send(command='sessionInfo', content=content)
+            response = await self.__ws_send(command='memberList', content=content)
             return response
 
     async def bot_profile(self):
@@ -429,6 +457,19 @@ class AsyncMirai(metaclass=Singleton):
             response = await self.__ws_send(command='memberProfile', content=content)
             return response
 
+    async def session_info(self):
+        """获取 session 信息
+        :return session 信息
+        """
+        content = {'sessionKey': self.session_key}
+        if self.adapter == 'http':
+            async with self.__session.get(url=f'{self.base_url}/sessionInfo', params=content) as r:
+                response = await r.json()
+            return response
+        elif self.adapter == 'ws':
+            response = await self.__ws_send(command='sessionInfo', content=content)
+            return response
+
     async def upload_img(self, img: Image, type='group'):
         """图片文件上传，当前仅支持 http
         :param img: 上传的 Image 对象
@@ -470,6 +511,20 @@ class AsyncMirai(metaclass=Singleton):
                                        files={'file': BytesIO(open(file, 'rb').read())}) as r:
             response = await r.json()
         return response
+
+    async def delete_friend(self, qq: int):
+        """删除好友
+        :param qq: 好友 QQ 号
+        """
+        content = {'sessionKey': self.session_key,
+                   'target': qq}
+        if self.adapter == 'http':
+            async with self.__session.post(url=f'{self.base_url}/deleteFriend', json=content) as r:
+                response = await r.json()
+            return response
+        elif self.adapter == 'ws':
+            response = await self.__ws_send(command='deleteFriend', content=content)
+            return response
 
     async def mute(self, group: int, qq: int, time: int):
         """禁言群成员
@@ -565,6 +620,38 @@ class AsyncMirai(metaclass=Singleton):
             response = await self.__ws_send(command='unmuteAll', content=content)
             return response
 
+    async def set_essence(self, msg_id: int):
+        """设置群精华消息
+        :param msg_id: 精华消息的 messageId
+        """
+        content = {'sessionKey': self.session_key,
+                   'target': msg_id}
+        if self.adapter == 'http':
+            async with self.__session.post(url=f'{self.base_url}/setEssence', json=content) as r:
+                response = await r.json()
+            return response
+        elif self.adapter == 'ws':
+            response = await self.__ws_send(command='setEssence', content=content)
+            return response
+
+    async def member_admin(self, group: int, qq: int, assign: bool = True):
+        """修改群员的管理员权限
+        :param group: 指定群的群号
+        :param qq: 群员 QQ 号
+        :param assign: 是否设置为管理员
+        """
+        content = {'sessionKey': self.session_key,
+                   'target': group,
+                   'memberId': qq,
+                   'assign': assign}
+        if self.adapter == 'http':
+            async with self.__session.post(url=f'{self.base_url}/memberAdmin', json=content) as r:
+                response = await r.json()
+            return response
+        elif self.adapter == 'ws':
+            response = await self.__ws_send(command='memberAdmin', content=content)
+            return response
+
     async def file_list(self, dir_id: Optional[str] = None, group: Optional[int] = None,
                         qq: Optional[int] = None, with_download_info: bool = False):
         """获取文件列表，目前仅支持群文件的操作
@@ -592,7 +679,7 @@ class AsyncMirai(metaclass=Singleton):
     async def file_info(self, file: Union[File, str], group: Optional[int] = None,
                         qq: Optional[int] = None, with_download_info: bool = False):
         """获取文件信息
-        :param file: 文件对象或文件唯一ID
+        :param file: 文件对象或文件唯一 ID
         :param group：群号，可选
         :param qq：好友 QQ 号，可选
         :param with_download_info：是否携带下载信息，额外请求，无必要不要携带
@@ -622,7 +709,7 @@ class AsyncMirai(metaclass=Singleton):
         :param group: 指定群的群号
         :return: 成员在指定群内是否为群主
         """
-        member_list = (await self.get_member_list(group))['data']
+        member_list = (await self.member_list(group))['data']
         if qq == self.qq:
             return member_list[0].get('group', {}).get('permission', None) == 'OWNER'
         for member in member_list:
@@ -641,7 +728,7 @@ class AsyncMirai(metaclass=Singleton):
         :param group: 指定群的群号
         :return: 成员在指定群内是否为管理员
         """
-        member_list = (await self.get_member_list(group))['data']
+        member_list = (await self.member_list(group))['data']
         if qq == self.qq:
             return member_list[0].get('group', {}).get('permission', None) in ['OWNER', 'ADMINISTRATOR']
         for member in member_list:
