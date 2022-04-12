@@ -13,13 +13,13 @@
 
 ## 安装
 
-``` bash
+```bash
 pip install miraicle
 ```
 
 ## 示例
 
-``` python
+```python
 import miraicle
 
 
@@ -35,9 +35,10 @@ def hello_to_friend(bot: miraicle.Mirai, msg: miraicle.FriendMessage):
 
 qq = 123456789              # 你登录的机器人 QQ 号
 verify_key = 'miraicle'     # 你在 setting.yml 中设置的 verifyKey
+host = 'localhost'          # 你在 setting.yml 中设置的 host (localhost)
 port = 8080                 # 你在 setting.yml 中设置的 port (http)
 
-bot = miraicle.Mirai(qq=qq, verify_key=verify_key, port=port)
+bot = miraicle.Mirai(qq=qq, verify_key=verify_key, host=host, port=port)
 bot.run()
 ```
 

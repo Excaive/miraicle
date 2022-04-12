@@ -20,18 +20,20 @@ class Mirai(metaclass=Singleton):
                  qq: int,
                  verify_key: str,
                  port: int,
+                 host: str = 'localhost',
                  session_key: Optional[str] = None,
                  adapter: str = 'http'):
         """创建一个 Mirai 对象
         :param qq: 要绑定的 bot 的 qq 号
         :param verify_key: 创建 mirai-http-server 时生成的 key, 在 mirai-api-http 的 setting 文件中手动指定
         :param port: 端口号，在 mirai-api-http 的 setting 文件中手动指定
+        :param host: host地址，在 mirai-api-http 的 setting 文件中手动指定，默认localhost
         :param session_key: 经过校验得到的 session 号，可选
         :param adapter: 连接方式，支持 http 和 ws，默认为 http
         """
         self.qq: int = qq
         self.verify_key: str = verify_key
-        self.base_url: str = f'{adapter}://localhost:{port}'
+        self.base_url: str = f'{adapter}://{host}:{port}'
         self.session_key: Optional[str] = session_key
         self.adapter: str = adapter
         self.thread_pool: ThreadPool = ThreadPool()
