@@ -481,19 +481,19 @@ class Mirai(metaclass=Singleton):
                                        files={'voice': BytesIO(open(voice.path, 'rb').read())}).json()
         return response
 
-    def upload_file_and_send(self, path: str, group: int, file, type='Group'):
+    def upload_file(self, path: str, group: int, file, type='group'):
         """文件上传，当前仅支持 http
         :param path: 文件上传目录与名字
         :param group: 指定群的群号
         :param file: 文件内容
-        :param type: 当前仅支持 "Group"
+        :param type: 当前仅支持 "group"
         """
-        response = self.__session.post(url=f'{self.base_url}/uploadFileAndSend',
+        response = self.__session.post(url=f'{self.base_url}/file/upload',
                                        data={'sessionKey': self.session_key,
                                              'type': type,
                                              'target': group,
                                              'path': path},
-                                       files={'file': BytesIO(open(file, 'rb').read())}).json()
+                                       files={'file': open(file, 'rb')}).json()
         return response
 
     def delete_friend(self, qq: int):
